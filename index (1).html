@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gestor OC — Odontomed Insumos</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--od-blue:#0A2FA8;--od-blue-mid:#1845C8;--od-blue-light:#EEF3FF;--od-orange:#E8710A;--od-orange-light:#FFF4EA;--bg:#F4F5F7;--bg-card:#FFFFFF;--text:#1A1A2E;--text-muted:#6B7280;--border:#E5E7EB;--r:10px;--rs:6px}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:14px;color:var(--text);background:var(--bg);display:flex;height:100vh;overflow:hidden}
+.sidebar{width:220px;min-width:220px;background:var(--od-blue);display:flex;flex-direction:column;overflow-y:auto}
+.brand{padding:1rem;border-bottom:1px solid rgba(255,255,255,0.12);display:flex;align-items:center;gap:10px}
+.brand-logo{width:42px;height:42px;border-radius:50%;object-fit:cover;flex-shrink:0;background:var(--od-orange)}
+.brand-name{font-size:14px;font-weight:600;color:white;line-height:1.2}
+.brand-sub{font-size:11px;color:rgba(255,255,255,0.5);margin-top:1px}
+.sync-dot{width:8px;height:8px;border-radius:50%;background:#EF4444;margin-left:auto;flex-shrink:0;transition:background .3s}
+.sync-dot.ok{background:#22C55E}
+.sync-dot.syncing{background:#F59E0B;animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.nav-sec{font-size:10px;color:rgba(255,255,255,0.35);padding:12px 14px 4px;text-transform:uppercase;letter-spacing:.08em}
+.nav-item{display:flex;align-items:center;gap:9px;padding:9px 14px;cursor:pointer;font-size:13px;color:rgba(255,255,255,0.7);border:none;background:none;width:100%;text-align:left;border-left:3px solid transparent;transition:background .15s}
+.nav-item:hover{background:rgba(255,255,255,0.08);color:white}
+.nav-item.active{background:rgba(255,255,255,0.13);color:white;font-weight:500;border-left-color:var(--od-orange)}
+.nav-item i{font-size:16px;flex-shrink:0}
+.nav-badge{background:var(--od-orange);color:white;font-size:10px;font-weight:600;padding:1px 6px;border-radius:10px;margin-left:auto;display:none}
+.nav-sep{height:1px;background:rgba(255,255,255,0.1);margin:.5rem 0}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.topbar{background:var(--bg-card);border-bottom:1px solid var(--border);padding:.75rem 1.5rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-shrink:0}
+.topbar-title{font-size:16px;font-weight:600;color:var(--od-blue)}
+.topbar-actions{display:flex;gap:8px;align-items:center}
+.content{flex:1;overflow-y:auto;padding:1.25rem 1.5rem}
+.page{display:none}.page.active{display:block}
+.btn{padding:7px 14px;border-radius:var(--rs);border:1px solid var(--border);background:white;cursor:pointer;font-size:13px;color:var(--text);display:inline-flex;align-items:center;gap:6px;transition:background .15s}
+.btn:hover{background:var(--bg)}
+.btn.primary{background:var(--od-blue);color:white;border-color:var(--od-blue)}
+.btn.primary:hover{background:var(--od-blue-mid)}
+.btn.orange{background:var(--od-orange);color:white;border-color:var(--od-orange)}
+.btn.danger{color:#9B1C1C;border-color:#F5C6C6}
+.btn.sm{padding:4px 10px;font-size:12px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:1.25rem}
+.card{background:var(--bg-card);border-radius:var(--r);padding:1rem;border:1px solid var(--border)}
+.card.ab{border-left:3px solid var(--od-blue)}
+.card.ao{border-left:3px solid var(--od-orange)}
+.card .lbl{font-size:11px;color:var(--text-muted);margin-bottom:5px}
+.card .val{font-size:20px;font-weight:600}
+.card .sub{font-size:11px;color:var(--text-muted);margin-top:2px}
+.table-wrap{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{background:var(--od-blue-light);padding:8px 12px;text-align:left;font-weight:600;font-size:11px;color:var(--od-blue);border-bottom:1px solid var(--border)}
+td{padding:7px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#FAFAFA}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:500}
+.badge.green{background:#DCFCE7;color:#14532D}
+.badge.amber{background:#FEF9C3;color:#713F12}
+.badge.red{background:#FEE2E2;color:#7F1D1D}
+.badge.gray{background:#F3F4F6;color:#374151}
+.badge.orange{background:var(--od-orange-light);color:#7A3800}
+.filter-bar{display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap;align-items:center}
+.filter-bar select,.filter-bar input{font-size:13px;padding:6px 10px;border-radius:var(--rs);border:1px solid var(--border);background:white;color:var(--text)}
+.org-chip{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:500}
+.org-msp{background:var(--od-blue-light);color:var(--od-blue)}
+.org-hsb{background:#DCFCE7;color:#14532D}
+.org-hpmi{background:var(--od-orange-light);color:#7A3800}
+.ptag{display:inline-block;padding:1px 7px;border-radius:4px;background:var(--od-blue-light);color:var(--od-blue);font-size:11px}
+.nota-box{background:var(--od-orange-light);border-left:3px solid var(--od-orange);border-radius:0 var(--rs) var(--rs) 0;padding:.625rem .875rem;font-size:12px;color:#7A3800;margin-bottom:1rem;display:flex;gap:6px}
+.alert-box{background:#FEE2E2;border-left:3px solid #EF4444;border-radius:0 var(--rs) var(--rs) 0;padding:.625rem .875rem;font-size:12px;color:#7F1D1D;margin-bottom:1rem;display:flex;gap:6px}
+.back-btn{display:inline-flex;align-items:center;gap:4px;font-size:13px;color:var(--od-blue);cursor:pointer;margin-bottom:1rem;border:none;background:none;padding:0}
+.tabs{display:flex;border-bottom:2px solid var(--border);margin-bottom:1rem}
+.tab{padding:8px 16px;font-size:13px;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;color:var(--text-muted);background:none;border-top:none;border-left:none;border-right:none}
+.tab.active{color:var(--od-blue);border-bottom-color:var(--od-orange);font-weight:600}
+.tab-pane{display:none}.tab-pane.active{display:block}
+.detail-header{display:flex;gap:.75rem;margin-bottom:1.25rem;flex-wrap:wrap}
+.detail-card{flex:1;min-width:110px;background:white;border-radius:var(--r);padding:.75rem 1rem;border:1px solid var(--border)}
+.detail-card .dl{font-size:11px;color:var(--text-muted);margin-bottom:2px}
+.detail-card .dv{font-size:14px;font-weight:600}
+.ent-card{border:1px solid var(--border);border-left:3px solid var(--od-orange);border-radius:0 var(--rs) var(--rs) 0;padding:.625rem .875rem;margin-bottom:.625rem;background:white}
+.ent-card.fac{border-left-color:#16A34A}
+.fac-card{border:1px solid var(--border);border-left:3px solid var(--od-blue);border-radius:0 var(--rs) var(--rs) 0;padding:.625rem .875rem;margin-bottom:.625rem;background:white}
+.pm{height:4px;border-radius:2px;background:#E5E7EB;overflow:hidden;display:inline-block;vertical-align:middle;min-width:48px}
+.pf{height:100%;border-radius:2px}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:flex-start;justify-content:center;padding-top:60px}
+.modal-overlay.open{display:flex}
+.modal{background:white;border-radius:var(--r);padding:1.5rem;width:min(680px,95vw);max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.15)}
+.modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border)}
+.modal-title{font-size:15px;font-weight:600;color:var(--od-blue)}
+.form-row{margin-bottom:.875rem}
+.form-label{font-size:12px;color:var(--text-muted);margin-bottom:4px;display:block;font-weight:500}
+.form-row input,.form-row select,.form-row textarea{width:100%;font-size:13px;padding:7px 10px;border-radius:var(--rs);border:1px solid var(--border);background:white;color:var(--text)}
+.form-row input:focus,.form-row select:focus{outline:none;border-color:var(--od-blue)}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.rtable{width:100%;font-size:12px;border-collapse:collapse}
+.rtable th{background:var(--od-blue-light);padding:6px 8px;text-align:left;font-size:11px;color:var(--od-blue);border-bottom:1px solid var(--border)}
+.rtable td{padding:5px 8px;border-bottom:1px solid var(--border)}
+.rtable input,.rtable select{width:100%;font-size:12px;padding:3px 6px;border:1px solid var(--border);border-radius:4px}
+.empty{text-align:center;padding:3rem;color:var(--text-muted)}
+.empty i{font-size:32px;display:block;margin-bottom:8px;opacity:.3;color:var(--od-blue)}
+.sec-title{font-size:11px;font-weight:600;color:var(--od-blue);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.75rem;margin-top:1.25rem}
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;background:#1E293B;color:white;padding:.75rem 1.25rem;border-radius:var(--r);font-size:13px;z-index:9999;display:flex;align-items:center;gap:8px;box-shadow:0 4px 20px rgba(0,0,0,.25);transform:translateY(100px);opacity:0;transition:all .3s}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.success{background:#14532D}
+.toast.error{background:#7F1D1D}
+</style>
+</head>
+<body>
+
+<div class="toast" id="toast"></div>
+
+<nav class="sidebar">
+  <div class="brand">
+    <img src="odontomed_logo.jpg" alt="Logo" class="brand-logo" onerror="this.style.display='none'">
+    <div>
+      <div class="brand-name">Odontomed</div>
+      <div class="brand-sub">Gestor de OC</div>
+    </div>
+    <div class="sync-dot" id="sync-dot" title="Estado de sincronización"></div>
+  </div>
+  <button class="nav-item active" onclick="showPage('dashboard')" id="nav-dashboard"><i class="ti ti-layout-dashboard"></i> Inicio</button>
+  <button class="nav-item" onclick="showPage('ocs')" id="nav-ocs"><i class="ti ti-file-invoice"></i> Órdenes de compra</button>
+  <button class="nav-item" onclick="showPage('resolver')" id="nav-resolver"><i class="ti ti-alert-triangle"></i> Por resolver <span class="nav-badge" id="badge-resolver">0</span></button>
+  <div class="nav-sep"></div>
+  <div class="nav-sec">Vistas</div>
+  <button class="nav-item" onclick="showPage('pendientes')" id="nav-pendientes"><i class="ti ti-clock"></i> Pend. entrega</button>
+  <button class="nav-item" onclick="showPage('sin-facturar')" id="nav-sin-facturar"><i class="ti ti-receipt-off"></i> Sin facturar</button>
+  <button class="nav-item" onclick="showPage('proveedores')" id="nav-proveedores"><i class="ti ti-truck"></i> Por proveedor</button>
+</nav>
+
+<div class="main">
+<div class="topbar">
+  <div class="topbar-title" id="topbar-title">Resumen general</div>
+  <div class="topbar-actions">
+    <select style="font-size:12px;padding:5px 8px;border-radius:var(--rs);border:1px solid var(--border);background:white" id="fil-org-g" onchange="renderCurrentPage()">
+      <option value="">Todos los organismos</option>
+      <option value="Ministerio MSP">Ministerio MSP</option>
+      <option value="Hospital San Bernardo">HSB</option>
+      <option value="Hospital Materno Infantil">HPMI</option>
+    </select>
+    <button class="btn orange" onclick="openNuevaOC()"><i class="ti ti-plus"></i> Nueva OC</button>
+  </div>
+</div>
+<div class="content">
+
+<div class="page active" id="page-dashboard">
+  <div class="cards" id="dash-cards"></div>
+  <div class="sec-title">OCs activas</div>
+  <div class="table-wrap"><table><thead><tr><th>N° OC</th><th>Organismo</th><th>LP</th><th>Monto OC</th><th>Entregado</th><th>Facturado</th><th>Estado</th><th></th></tr></thead><tbody id="dash-tbody"></tbody></table></div>
+</div>
+
+<div class="page" id="page-ocs">
+  <div class="filter-bar">
+    <select id="fo-org" onchange="renderOCs()"><option value="">Todos los organismos</option><option>Ministerio MSP</option><option>Hospital San Bernardo</option><option>Hospital Materno Infantil</option></select>
+    <select id="fo-lp" onchange="renderOCs()"><option value="">Todas las LP</option><option>LP07/25</option><option>LP07/24</option></select>
+    <select id="fo-est" onchange="renderOCs()"><option value="">Todos los estados</option><option value="activa">Activas</option><option value="cerrada">Cerradas</option></select>
+    <input type="text" id="fo-bus" placeholder="Buscar N° OC..." oninput="renderOCs()" style="width:150px">
+  </div>
+  <div class="table-wrap"><table><thead><tr><th>N° OC</th><th>Organismo</th><th>LP</th><th>Fecha</th><th>Monto OC</th><th>Entregado</th><th>Facturado</th><th>Estado</th><th></th></tr></thead><tbody id="ocs-tbody"></tbody></table></div>
+</div>
+
+<div class="page" id="page-detalle">
+  <button class="back-btn" onclick="showPage('ocs')"><i class="ti ti-arrow-left"></i> Volver</button>
+  <div id="detalle-content"></div>
+</div>
+
+<div class="page" id="page-resolver"><div id="resolver-content"></div></div>
+
+<div class="page" id="page-pendientes">
+  <div class="filter-bar"><select id="fp-prov" onchange="renderPendientes()"><option value="">Todos los proveedores</option></select></div>
+  <div class="table-wrap"><table><thead><tr><th>OC</th><th>Organismo</th><th>R°</th><th>Producto</th><th>Proveedor</th><th>Pedido</th><th>Entregado</th><th>Falta</th></tr></thead><tbody id="pend-tbody"></tbody></table></div>
+</div>
+
+<div class="page" id="page-sin-facturar">
+  <div class="table-wrap"><table><thead><tr><th>OC</th><th>Organismo</th><th>Remito</th><th>Fecha</th><th>Ítems</th><th>Valor</th><th>Estado</th></tr></thead><tbody id="sf-tbody"></tbody></table></div>
+</div>
+
+<div class="page" id="page-proveedores"><div id="prov-content"></div></div>
+
+</div></div>
+
+<!-- MODALES -->
+<div class="modal-overlay" id="modal-oc">
+<div class="modal">
+  <div class="modal-header"><div class="modal-title">Nueva orden de compra</div><button class="btn sm" onclick="closeModal('modal-oc')"><i class="ti ti-x"></i></button></div>
+  <div class="form-grid">
+    <div class="form-row"><label class="form-label">N° OC</label><input id="moc-num" placeholder="ej: 26018266"></div>
+    <div class="form-row"><label class="form-label">Organismo</label><select id="moc-org"><option>Ministerio MSP</option><option>Hospital San Bernardo</option><option>Hospital Materno Infantil</option><option>Hospital Oñativia</option></select></div>
+    <div class="form-row"><label class="form-label">Licitación</label><select id="moc-lp"><option>LP07/25</option><option>LP07/24</option></select></div>
+    <div class="form-row"><label class="form-label">Fecha</label><input type="date" id="moc-fecha"></div>
+  </div>
+  <div class="form-row"><label class="form-label">Notas</label><textarea id="moc-notas" rows="2"></textarea></div>
+  <div class="sec-title" style="margin-top:0">Renglones <button class="btn sm" style="margin-left:8px" onclick="addRenglon()"><i class="ti ti-plus"></i> Agregar</button></div>
+  <div style="overflow-x:auto"><table class="rtable"><thead><tr><th style="width:42px">#</th><th style="min-width:170px">Producto</th><th style="min-width:90px">Proveedor</th><th style="width:60px">Cant.</th><th style="width:90px">Precio</th><th style="width:28px"></th></tr></thead><tbody id="moc-rngl"></tbody></table></div>
+  <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:1.25rem">
+    <button class="btn" onclick="closeModal('modal-oc')">Cancelar</button>
+    <button class="btn primary" onclick="guardarOC()">Guardar OC</button>
+  </div>
+</div></div>
+
+<div class="modal-overlay" id="modal-entrega">
+<div class="modal">
+  <div class="modal-header"><div class="modal-title">Registrar entrega — OC <span id="ment-ocnum" style="color:var(--od-orange)"></span></div><button class="btn sm" onclick="closeModal('modal-entrega')"><i class="ti ti-x"></i></button></div>
+  <div class="form-grid">
+    <div class="form-row"><label class="form-label">N° Remito</label><input id="ment-remito" placeholder="ej: R05-433"></div>
+    <div class="form-row"><label class="form-label">Fecha</label><input type="date" id="ment-fecha"></div>
+  </div>
+  <div class="nota-box"><i class="ti ti-info-circle"></i>Solo ingresá las cantidades de este remito. Dejá en 0 lo que no se entrega.</div>
+  <div style="overflow-x:auto"><table class="rtable"><thead><tr><th>#</th><th>Producto</th><th>Falta</th><th>En este remito</th></tr></thead><tbody id="ment-tbody"></tbody></table></div>
+  <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:1.25rem">
+    <button class="btn" onclick="closeModal('modal-entrega')">Cancelar</button>
+    <button class="btn primary" onclick="guardarEntrega()">Registrar entrega</button>
+  </div>
+</div></div>
+
+<div class="modal-overlay" id="modal-factura">
+<div class="modal">
+  <div class="modal-header"><div class="modal-title">Registrar factura — OC <span id="mfac-ocnum" style="color:var(--od-orange)"></span></div><button class="btn sm" onclick="closeModal('modal-factura')"><i class="ti ti-x"></i></button></div>
+  <div class="form-grid">
+    <div class="form-row"><label class="form-label">N° Factura</label><input id="mfac-num" placeholder="ej: 05-42596"></div>
+    <div class="form-row"><label class="form-label">Fecha</label><input type="date" id="mfac-fecha"></div>
+  </div>
+  <div class="form-row"><label class="form-label">Remitos que cubre (separados por coma)</label><input id="mfac-remitos" placeholder="ej: R05-433, R05-415"></div>
+  <div class="form-row"><label class="form-label">Monto total</label><input type="number" id="mfac-monto"></div>
+  <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:1.25rem">
+    <button class="btn" onclick="closeModal('modal-factura')">Cancelar</button>
+    <button class="btn primary" onclick="guardarFactura()">Registrar factura</button>
+  </div>
+</div></div>
+
+<div class="modal-overlay" id="modal-resolver">
+<div class="modal">
+  <div class="modal-header"><div class="modal-title">Asignar ítem del remito <span id="mres-remito" style="color:var(--od-orange)"></span></div><button class="btn sm" onclick="closeModal('modal-resolver')"><i class="ti ti-x"></i></button></div>
+  <div class="alert-box"><i class="ti ti-alert-triangle"></i>Este ítem no pudo asignarse automáticamente.</div>
+  <div id="mres-content"></div>
+  <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:1.25rem">
+    <button class="btn" onclick="closeModal('modal-resolver')">Cancelar</button>
+    <button class="btn primary" onclick="confirmarResolucion()">Confirmar</button>
+  </div>
+</div></div>
+
+<script>
+// ===== FIREBASE CONFIG =====
+const firebaseConfig = {
+  databaseURL: "https://gestor-oc-odontomed-default-rtdb.firebaseio.com"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const ref = db.ref('ocs');
+
+// ===== STATE =====
+const PROVEEDORES = ['Medrano','Megadental','Poquet','Belkys','Microdont','Easydent','Farmadental','Densell','Meta','Maillefer','KMD','Nipro','IBC','Mecadent','Muntal','Carestream','Romek','Scivita','Tribiselada'];
+const PAGE_TITLES = {dashboard:'Resumen general',ocs:'Órdenes de compra',detalle:'Detalle de OC',resolver:'Por resolver',pendientes:'Pendientes de entrega','sin-facturar':'Sin facturar',proveedores:'Por proveedor'};
+let state = {ocs:[], currentOC:null, currentResolver:null, currentPage:'dashboard', loaded:false};
+let rcnt = 0;
+
+// ===== SEED DATA =====
+const OCS_SEED = [{"id":"oc_26001426","numero":"26001426","organismo":"Ministerio MSP","fecha":"2026-01-27","licitacion":"LP07/25","notas":"Diferencia $875.078,20: 30 Banda Matriz + 10 Pinza Algodón (cambiando a Medrano). OR 7666 generada y entregada.","estado":"activa","pendingItems":[],"renglones":[{"id":"r1","numero":"1","producto":"Aceite lubricante aerosol 910ml KMD","proveedor":"KMD","cantidad":50,"precio":23041.35},{"id":"r2","numero":"2","producto":"Agujas Carpule Intermedias 30G x25mm x100 Nipro","proveedor":"Nipro","cantidad":50,"precio":30801.94},{"id":"r4","numero":"4","producto":"Cariostático Fluorsilver 5ml Densell","proveedor":"Medrano","cantidad":50,"precio":35732.58},{"id":"r5","numero":"5","producto":"Hidróxido de Calcio Pasta Densell","proveedor":"Medrano","cantidad":30,"precio":28709.28},{"id":"r7","numero":"7","producto":"Banda Matriz de Acero 5x7mm x3m Microdont","proveedor":"Medrano","cantidad":60,"precio":13307.30},{"id":"r8","numero":"8","producto":"Tiras Celuloide x100 Microdont","proveedor":"Megadental","cantidad":70,"precio":8132.24},{"id":"r9","numero":"9","producto":"Tiras Pulir Composite x100 Microdont","proveedor":"Megadental","cantidad":12,"precio":15648.40},{"id":"r20","numero":"20","producto":"Endo G-Fill Grossman 20+10ml Densell","proveedor":"Medrano","cantidad":20,"precio":26737.82},{"id":"r45","numero":"45","producto":"Restaurador Temporario Frasco 40gr Densell","proveedor":"Medrano","cantidad":20,"precio":19098.45},{"id":"r46","numero":"46","producto":"Pasta Lentamente Reabsorbible Maisto 20gr","proveedor":"Farmadental","cantidad":20,"precio":21932.41},{"id":"r63","numero":"63","producto":"Pinza para Algodón Belkys","proveedor":"Medrano","cantidad":50,"precio":6900.08}],"entregas":[{"id":"e1","remito":"R05-375","fecha":"2026-03-01","items":[{"renglon":"r1","cantidad":12},{"renglon":"r2","cantidad":50},{"renglon":"r4","cantidad":50},{"renglon":"r5","cantidad":30},{"renglon":"r7","cantidad":30},{"renglon":"r8","cantidad":70},{"renglon":"r9","cantidad":12}]},{"id":"e2","remito":"R05-380","fecha":"2026-03-15","items":[{"renglon":"r20","cantidad":20}]},{"id":"e3","remito":"R05-402","fecha":"2026-05-10","items":[{"renglon":"r45","cantidad":20},{"renglon":"r46","cantidad":15}]}],"facturas":[{"id":"f1","numero":"05-42173","fecha":"2026-03-26","remitos":["R05-375","R05-376","R05-378","R05-380","R05-381","R05-387"],"monto":30740758.45},{"id":"f2","numero":"05-42374","fecha":"2026-05-05","remitos":["R05-380","R05-387"],"monto":7261106.30},{"id":"f3","numero":"05-42509","fecha":"2026-05-30","remitos":["R05-402","R05-416"],"monto":710955.15}]},{"id":"oc_26005540","numero":"26005540","organismo":"Ministerio MSP","fecha":"2026-02-28","licitacion":"LP07/24","notas":"Fac 05-42510 enviada 30/05/2026 22:49. Solo falta R°1: 50 Agujas Cortas.","estado":"activa","pendingItems":[],"renglones":[{"id":"r1","numero":"1","producto":"Agujas Carpule 30G x7/8-21mm x100 Tribiselada","proveedor":"Nipro","cantidad":150,"precio":29078.71},{"id":"r2","numero":"2","producto":"Ácido Fosfórico 37% x5gr Densell","proveedor":"Medrano","cantidad":50,"precio":18560.88},{"id":"r3","numero":"3","producto":"Adhesivo Fotocurado Esmalte Dentina x5ml Densell","proveedor":"Medrano","cantidad":30,"precio":44855.46},{"id":"r4","numero":"4","producto":"Resina Fotocurado Dentina Color A2 x4gr","proveedor":"Medrano","cantidad":100,"precio":27067.95},{"id":"r5","numero":"5","producto":"Resina Fotocurado Dentina Color A3 x4gr","proveedor":"Medrano","cantidad":50,"precio":27067.95},{"id":"r6","numero":"6","producto":"Ionómero Vítreo Tipo 2 Restauración Avio 10gr+6ml","proveedor":"Medrano","cantidad":20,"precio":84916.03}],"entregas":[{"id":"e1","remito":"R05-382","fecha":"2026-04-01","items":[{"renglon":"r2","cantidad":50},{"renglon":"r3","cantidad":30},{"renglon":"r4","cantidad":100},{"renglon":"r5","cantidad":50},{"renglon":"r6","cantidad":20},{"renglon":"r1","cantidad":100}]}],"facturas":[{"id":"f1","numero":"05-42510","fecha":"2026-05-30","remitos":["R05-382","R05-404"],"monto":12394027.40}]},{"id":"oc_26005544","numero":"26005544","organismo":"Ministerio MSP","fecha":"2026-02-28","licitacion":"LP07/25","notas":"Fac 05-42511 emitida 30/05/2026 — Ministerio aún no la contabilizó. Falta facturar R05-436 (Microaplicadores 50u). Pendientes pedidos a proveedor.","estado":"activa","pendingItems":[],"renglones":[{"id":"r2","numero":"2","producto":"Agujas Carpule Intermedias x100 Nipro","proveedor":"Nipro","cantidad":50,"precio":30801.94},{"id":"r4","numero":"4","producto":"Cariostático Fluorsilver 5ml Densell","proveedor":"Medrano","cantidad":50,"precio":35732.58},{"id":"r5","numero":"5","producto":"Hidróxido de Calcio Pasta Densell","proveedor":"Medrano","cantidad":30,"precio":28709.28},{"id":"r6","numero":"6","producto":"Endo G-Fill Grossman 20+10ml Densell","proveedor":"Medrano","cantidad":20,"precio":26737.82},{"id":"r8","numero":"8","producto":"Tiras Celuloide x100 Microdont","proveedor":"Megadental","cantidad":50,"precio":8132.24},{"id":"r9","numero":"9","producto":"Banda Matriz Acero 5x7mm Microdont","proveedor":"Medrano","cantidad":50,"precio":13307.30},{"id":"r11","numero":"11","producto":"Compresas Descartables x50 Ultra","proveedor":"Medrano","cantidad":150,"precio":6776.87},{"id":"r14","numero":"14","producto":"Conos Gutapercha Acc. FM Meta","proveedor":"Meta","cantidad":40,"precio":13368.91},{"id":"r29","numero":"29","producto":"Eugenol Puro x20cc Densell","proveedor":"Medrano","cantidad":30,"precio":15278.76},{"id":"r31","numero":"31","producto":"Eyectores p/saliva x100 Easydent","proveedor":"Medrano","cantidad":200,"precio":9857.26},{"id":"r32","numero":"32","producto":"Flúor Acidulado 200cc Densell","proveedor":"Medrano","cantidad":50,"precio":17619.86},{"id":"r33","numero":"33","producto":"Flúor PHNeutro 200cc Densell","proveedor":"Medrano","cantidad":50,"precio":17619.86},{"id":"r34","numero":"34","producto":"Fórceps Raíz Inferior Belkys","proveedor":"Poquet","cantidad":5,"precio":31789.67},{"id":"r35","numero":"35","producto":"Fórceps Raíz Superior Belkys","proveedor":"Poquet","cantidad":5,"precio":31789.67},{"id":"r47","numero":"47","producto":"Iodoformo Purísimo x10gr Densell","proveedor":"Medrano","cantidad":50,"precio":18482.37},{"id":"r52","numero":"52","producto":"Lima Flexible N°20 25mm Maillefer","proveedor":"Maillefer","cantidad":30,"precio":31420.02},{"id":"r53","numero":"53","producto":"Lima Flexible N°25 25mm Maillefer","proveedor":"Maillefer","cantidad":40,"precio":31420.02},{"id":"r56","numero":"56","producto":"Microaplicador Descartables x100","proveedor":"Medrano","cantidad":50,"precio":8255.46},{"id":"r65","numero":"65","producto":"Placas RX D-Speed Adultos x100 Carestream","proveedor":"Carestream","cantidad":50,"precio":80090.26},{"id":"r70","numero":"70","producto":"Sealant P&F White Fluor 1,5gr Densell","proveedor":"Medrano","cantidad":100,"precio":22548.49},{"id":"r71","numero":"71","producto":"Sindesmótomos Curvos Belkys","proveedor":"Poquet","cantidad":10,"precio":6284},{"id":"r72","numero":"72","producto":"Sindesmótomos Rectos Belkys","proveedor":"Poquet","cantidad":10,"precio":6284}],"entregas":[{"id":"e1","remito":"R05-388","fecha":"2026-04-01","items":[{"renglon":"r2","cantidad":20},{"renglon":"r4","cantidad":20},{"renglon":"r5","cantidad":17},{"renglon":"r6","cantidad":19},{"renglon":"r8","cantidad":30},{"renglon":"r11","cantidad":80},{"renglon":"r29","cantidad":20},{"renglon":"r32","cantidad":35}]},{"id":"e2","remito":"R05-394","fecha":"2026-04-10","items":[{"renglon":"r14","cantidad":40}]},{"id":"e4","remito":"R05-403","fecha":"2026-05-10","items":[{"renglon":"r2","cantidad":30},{"renglon":"r4","cantidad":30},{"renglon":"r5","cantidad":13},{"renglon":"r6","cantidad":1},{"renglon":"r11","cantidad":70},{"renglon":"r32","cantidad":15},{"renglon":"r52","cantidad":14},{"renglon":"r53","cantidad":6},{"renglon":"r47","cantidad":20}]},{"id":"e5","remito":"R05-420","fecha":"2026-05-15","items":[{"renglon":"r31","cantidad":200}]},{"id":"e6","remito":"R05-413","fecha":"2026-05-20","items":[{"renglon":"r14","cantidad":40}]},{"id":"e7","remito":"R05-436","fecha":"2026-06-01","items":[{"renglon":"r56","cantidad":50}]}],"facturas":[{"id":"f1","numero":"05-42375","fecha":"2026-05-05","remitos":["R05-388","R05-394","R05-383"],"monto":30391596.17},{"id":"f2","numero":"05-42511","fecha":"2026-05-30","remitos":["R05-403","R05-420","R05-413"],"monto":10883713.08}]},{"id":"oc_26007091","numero":"26007091","organismo":"Ministerio MSP","fecha":"2026-03-16","licitacion":"LP07/25","notas":"Fac 05-42596 emitida 17/06/2026 cubre R05-390/406/414/432.","estado":"activa","pendingItems":[],"renglones":[{"id":"r1","numero":"1","producto":"Aceite Lubricante Aerosol 910ml KMD","proveedor":"KMD","cantidad":30,"precio":23041.35},{"id":"r2","numero":"2","producto":"Agujas Carpule Intermedias x100 Nipro","proveedor":"Nipro","cantidad":50,"precio":30801.94},{"id":"r4","numero":"4","producto":"Cariostático Fluorsilver 5ml Densell","proveedor":"Medrano","cantidad":30,"precio":35732.58},{"id":"r5","numero":"5","producto":"Hidróxido de Calcio Pasta Densell","proveedor":"Medrano","cantidad":30,"precio":28709.28},{"id":"r6","numero":"6","producto":"Endo G-Fill Grossman 20+10ml Densell","proveedor":"Medrano","cantidad":20,"precio":26737.82},{"id":"r8","numero":"8","producto":"Tiras Celuloide x100 Microdont","proveedor":"Megadental","cantidad":50,"precio":8132.24},{"id":"r9","numero":"9","producto":"Banda Matriz Acero 5x7mm Microdont","proveedor":"Medrano","cantidad":50,"precio":13307.30},{"id":"r11","numero":"11","producto":"Compresas Descartables x50 Ultra","proveedor":"Medrano","cantidad":50,"precio":6776.87},{"id":"r29","numero":"29","producto":"Eugenol Puro x20cc Densell","proveedor":"Medrano","cantidad":30,"precio":15278.76},{"id":"r31","numero":"31","producto":"Eyectores p/saliva x100 Easydent","proveedor":"Medrano","cantidad":200,"precio":9857.26},{"id":"r33","numero":"33","producto":"Flúor PHNeutro 200cc Densell","proveedor":"Medrano","cantidad":50,"precio":17619.86},{"id":"r46","numero":"46","producto":"Cemento Zoer Reforzado Avio Densell","proveedor":"Medrano","cantidad":50,"precio":52243.49},{"id":"r47","numero":"47","producto":"Iodoformo Purísimo x10gr Densell","proveedor":"Medrano","cantidad":30,"precio":18482.37},{"id":"r48","numero":"48","producto":"Ionómero MPLC2 Restauración Foto Densell","proveedor":"Medrano","cantidad":30,"precio":113358.52},{"id":"r55","numero":"56","producto":"Microaplicador Descartables x100","proveedor":"Medrano","cantidad":50,"precio":8255.46},{"id":"r65","numero":"65","producto":"Placas RX D-Speed x100 Carestream","proveedor":"Carestream","cantidad":50,"precio":80090.26},{"id":"r67","numero":"67","producto":"Resina UltraFill A1 4gr","proveedor":"Megadental","cantidad":50,"precio":28672.02},{"id":"r68","numero":"68","producto":"Resina UltraFill A2 4gr","proveedor":"Megadental","cantidad":50,"precio":28672.02},{"id":"r69","numero":"69","producto":"Resina UltraFlow A3 jeringa 2gr","proveedor":"Megadental","cantidad":100,"precio":29325.36},{"id":"r70","numero":"70","producto":"Sealant P&F White Fluor 1,5gr Densell","proveedor":"Medrano","cantidad":100,"precio":22548.49},{"id":"r71","numero":"71","producto":"Sindesmótomos Curvos Belkys","proveedor":"Poquet","cantidad":10,"precio":6284},{"id":"r72","numero":"72","producto":"Sindesmótomos Rectos Belkys","proveedor":"Poquet","cantidad":10,"precio":6284}],"entregas":[{"id":"e1","remito":"R05-390","fecha":"2026-04-01","items":[{"renglon":"r67","cantidad":50},{"renglon":"r68","cantidad":50}]},{"id":"e2","remito":"R05-406","fecha":"2026-05-07","items":[{"renglon":"r65","cantidad":30}]},{"id":"e3","remito":"R05-414","fecha":"2026-05-20","items":[{"renglon":"r11","cantidad":50},{"renglon":"r31","cantidad":200}]},{"id":"e4","remito":"R05-432","fecha":"2026-06-01","items":[{"renglon":"r2","cantidad":50},{"renglon":"r4","cantidad":30},{"renglon":"r5","cantidad":30},{"renglon":"r6","cantidad":20},{"renglon":"r29","cantidad":30},{"renglon":"r46","cantidad":50},{"renglon":"r48","cantidad":30},{"renglon":"r55","cantidad":50},{"renglon":"r69","cantidad":100},{"renglon":"r70","cantidad":100}]}],"facturas":[{"id":"f1","numero":"05-42596","fecha":"2026-06-17","remitos":["R05-390","R05-406","R05-414","R05-432"],"monto":32040902.80}]},{"id":"oc_26007096","numero":"26007096","organismo":"Ministerio MSP","fecha":"2026-03-16","licitacion":"LP07/24","notas":"Todo entregado excepto Ionómero (R°6). Ya salió de Bs.As. 18/06/2026. Facturar todo junto.","estado":"activa","pendingItems":[],"renglones":[{"id":"r1","numero":"1","producto":"Agujas Carpule 30G x7/8-21mm x100 Tribiselada","proveedor":"Nipro","cantidad":100,"precio":29078.71},{"id":"r2","numero":"2","producto":"Ácido Grabador Fotocurado 37% x5gr Densell","proveedor":"Medrano","cantidad":50,"precio":18560.88},{"id":"r3","numero":"3","producto":"Adhesivo Fotocurado Esmalte Dentina x5ml Densell","proveedor":"Medrano","cantidad":50,"precio":44855.46},{"id":"r4","numero":"4","producto":"Resina Fotocurado Dentina Color A2 x4gr","proveedor":"Medrano","cantidad":50,"precio":27067.95},{"id":"r5","numero":"5","producto":"Resina Fotocurado Dentina Color A3 x4gr","proveedor":"Medrano","cantidad":35,"precio":27067.95},{"id":"r6","numero":"6","producto":"Ionómero Vítreo Tipo 2 Restauración Avio 10gr+6ml","proveedor":"Medrano","cantidad":30,"precio":84916.03}],"entregas":[{"id":"e1","remito":"R05-392","fecha":"2026-04-10","items":[{"renglon":"r1","cantidad":100}]},{"id":"e2","remito":"R05-405","fecha":"2026-05-10","items":[{"renglon":"r2","cantidad":50},{"renglon":"r3","cantidad":50}]},{"id":"e3","remito":"R05-429","fecha":"2026-05-20","items":[{"renglon":"r4","cantidad":50},{"renglon":"r5","cantidad":35}]}],"facturas":[]},{"id":"oc_26010490","numero":"26010490","organismo":"Ministerio MSP","fecha":"2026-04-14","licitacion":"LP07/25","notas":"Fac 05-42600 emitida 18/06/2026. Pendientes pedidos a proveedor.","estado":"activa","pendingItems":[],"renglones":[{"id":"r2","numero":"2","producto":"Agujas Carpule Intermedias x100 Nipro","proveedor":"Nipro","cantidad":50,"precio":30801.94},{"id":"r4","numero":"4","producto":"Cariostático Fluorsilver 5ml Densell","proveedor":"Medrano","cantidad":50,"precio":35732.58},{"id":"r5","numero":"5","producto":"Hidróxido de Calcio Pasta Densell","proveedor":"Medrano","cantidad":20,"precio":28709.28},{"id":"r6","numero":"6","producto":"Endo G-Fill Grossman 20+10ml Densell","proveedor":"Medrano","cantidad":15,"precio":26737.82},{"id":"r11","numero":"11","producto":"Compresas Descartables x50 Ultra","proveedor":"Medrano","cantidad":150,"precio":6776.87},{"id":"r31","numero":"31","producto":"Eyectores p/saliva x100 Easydent","proveedor":"Medrano","cantidad":200,"precio":9857.26},{"id":"r46","numero":"46","producto":"Cemento Zoer Reforzado Avio Densell","proveedor":"Medrano","cantidad":50,"precio":52243.49},{"id":"r48","numero":"48","producto":"Ionómero MPLC2 Restauración Foto Densell","proveedor":"Medrano","cantidad":20,"precio":113358.52},{"id":"r56","numero":"56","producto":"Microaplicador Descartables x100","proveedor":"Medrano","cantidad":50,"precio":8255.46},{"id":"r68","numero":"68","producto":"Resina UltraFill A1 4gr","proveedor":"Megadental","cantidad":50,"precio":28672.02},{"id":"r69","numero":"69","producto":"Resina UltraFill A2 4gr","proveedor":"Megadental","cantidad":50,"precio":28672.02},{"id":"r70","numero":"70","producto":"Sealant P&F White Fluor 1,5gr Densell","proveedor":"Medrano","cantidad":100,"precio":22548.49},{"id":"r71","numero":"71","producto":"Sindesmótomos Curvos Belkys","proveedor":"Poquet","cantidad":10,"precio":6284},{"id":"r72","numero":"72","producto":"Sindesmótomos Rectos Belkys","proveedor":"Poquet","cantidad":10,"precio":6284}],"entregas":[{"id":"e1","remito":"R05-391","fecha":"2026-04-23","items":[{"renglon":"r68","cantidad":50},{"renglon":"r69","cantidad":50}]},{"id":"e3","remito":"R05-415","fecha":"2026-05-20","items":[{"renglon":"r11","cantidad":150},{"renglon":"r31","cantidad":200}]},{"id":"e4","remito":"R05-433","fecha":"2026-06-01","items":[{"renglon":"r2","cantidad":50},{"renglon":"r4","cantidad":50},{"renglon":"r5","cantidad":20},{"renglon":"r6","cantidad":15},{"renglon":"r46","cantidad":40},{"renglon":"r56","cantidad":50},{"renglon":"r70","cantidad":100}]},{"id":"e5","remito":"R05-434","fecha":"2026-06-01","items":[{"renglon":"r48","cantidad":20}]}],"facturas":[{"id":"f1","numero":"05-42600","fecha":"2026-06-18","remitos":["R05-391","R05-407","R05-415","R05-433","R05-434"],"monto":29151184.40}]},{"id":"oc_26010495","numero":"26010495","organismo":"Ministerio MSP","fecha":"2026-04-14","licitacion":"LP07/24","notas":"Igual que OC 26007096. Ionómero (R°6) ya salió de Bs.As. 18/06/2026. Facturar todo junto.","estado":"activa","pendingItems":[],"renglones":[{"id":"r1","numero":"1","producto":"Agujas Carpule 30G x7/8-21mm x100 Tribiselada","proveedor":"Nipro","cantidad":100,"precio":29078.71},{"id":"r2","numero":"2","producto":"Ácido Grabador Fotocurado 37% x5gr Densell","proveedor":"Medrano","cantidad":50,"precio":18560.88},{"id":"r3","numero":"3","producto":"Adhesivo Fotocurado Esmalte Dentina x5ml Densell","proveedor":"Medrano","cantidad":50,"precio":44855.46},{"id":"r4","numero":"4","producto":"Resina Fotocurado Dentina Color A2 x4gr","proveedor":"Medrano","cantidad":50,"precio":27067.95},{"id":"r5","numero":"5","producto":"Resina Fotocurado Dentina Color A3 x4gr","proveedor":"Medrano","cantidad":50,"precio":27067.95},{"id":"r6","numero":"6","producto":"Ionómero Vítreo Tipo 2 Restauración Avio 10gr+6ml","proveedor":"Medrano","cantidad":30,"precio":84916.03}],"entregas":[{"id":"e1","remito":"R05-395","fecha":"2026-04-20","items":[{"renglon":"r1","cantidad":100}]},{"id":"e2","remito":"R05-418","fecha":"2026-05-10","items":[{"renglon":"r2","cantidad":50},{"renglon":"r3","cantidad":50}]},{"id":"e3","remito":"R05-428","fecha":"2026-05-20","items":[{"renglon":"r4","cantidad":50},{"renglon":"r5","cantidad":50}]}],"facturas":[]},{"id":"oc_26014572","numero":"26014572","organismo":"Ministerio MSP","fecha":"2026-05-14","licitacion":"LP07/25","notas":"Entrega parcial R05-435. Esperando pedido a proveedor.","estado":"activa","pendingItems":[],"renglones":[{"id":"r1","numero":"1","producto":"Aceite Lubricante Aerosol 910ml KMD","proveedor":"KMD","cantidad":50,"precio":23041.35},{"id":"r2","numero":"2","producto":"Agujas Carpule Intermedias x100 Nipro","proveedor":"Nipro","cantidad":50,"precio":30801.94},{"id":"r4","numero":"4","producto":"Cariostático Fluorsilver 5ml Densell","proveedor":"Medrano","cantidad":50,"precio":35732.58},{"id":"r31","numero":"31","producto":"Eyectores p/saliva x100 Easydent","proveedor":"Medrano","cantidad":200,"precio":9857.26},{"id":"r46","numero":"46","producto":"Cemento Zoer Reforzado Avio Densell","proveedor":"Medrano","cantidad":50,"precio":52243.49},{"id":"r65","numero":"65","producto":"Placas RX D-Speed x100 Carestream","proveedor":"Carestream","cantidad":30,"precio":80090.26},{"id":"r70","numero":"70","producto":"Sealant P&F White Fluor 1,5gr Densell","proveedor":"Medrano","cantidad":100,"precio":22548.49}],"entregas":[{"id":"e1","remito":"R05-435","fecha":"2026-06-10","items":[{"renglon":"r2","cantidad":50},{"renglon":"r4","cantidad":50},{"renglon":"r31","cantidad":200},{"renglon":"r46","cantidad":50}]}],"facturas":[]},{"id":"oc_26014596","numero":"26014596","organismo":"Ministerio MSP","fecha":"2026-05-14","licitacion":"LP07/24","notas":"Solo entregado Ácido Grabador. Resto pendiente de proveedor.","estado":"activa","pendingItems":[],"renglones":[{"id":"r1","numero":"1","producto":"Ácido Grabador Fotocurado 37% x5gr Densell","proveedor":"Medrano","cantidad":50,"precio":18560.88},{"id":"r2","numero":"2","producto":"Agujas Carpule 30G x7/8-21mm x100 Tribiselada","proveedor":"Nipro","cantidad":50,"precio":29078.71},{"id":"r3","numero":"3","producto":"Adhesivo Fotocurado Esmalte Dentina x5ml Densell","proveedor":"Medrano","cantidad":30,"precio":44855.46},{"id":"r4","numero":"4","producto":"Resina Fotocurado Dentina Color A2 x4gr","proveedor":"Medrano","cantidad":50,"precio":27067.95},{"id":"r5","numero":"5","producto":"Resina Fotocurado Dentina Color A3 x4gr","proveedor":"Medrano","cantidad":50,"precio":27067.95},{"id":"r6","numero":"6","producto":"Ionómero Vítreo Tipo 2 Restauración Avio 10gr+6ml","proveedor":"Medrano","cantidad":20,"precio":84916.03}],"entregas":[{"id":"e1","remito":"R05-438","fecha":"2026-06-10","items":[{"renglon":"r1","cantidad":50}]}],"facturas":[]},{"id":"oc_26018266","numero":"26018266","organismo":"Hospital Materno Infantil","fecha":"2026-06-09","licitacion":"LP07/25","notas":"OC oficial verificada. $220.556,26.","estado":"activa","pendingItems":[],"renglones":[{"id":"r11","numero":"11","producto":"Compresas Descartables x50 Ultra","proveedor":"Medrano","cantidad":4,"precio":6776.87},{"id":"r31","numero":"31","producto":"Eyectores p/saliva x100 Easydent","proveedor":"Medrano","cantidad":5,"precio":9857.26},{"id":"r54","numero":"54","producto":"Líquido Fijador RX x500ml Romek","proveedor":"Romek","cantidad":3,"precio":12321.58},{"id":"r55","numero":"55","producto":"Líquido Revelador RX x500ml Romek","proveedor":"Romek","cantidad":1,"precio":18359.15},{"id":"r56","numero":"56","producto":"Microaplicador Descartables x100","proveedor":"Medrano","cantidad":1,"precio":8255.46},{"id":"r57","numero":"57","producto":"Pasta Lentamente Reabsorbible 20gr","proveedor":"Farmadental","cantidad":1,"precio":21932.41},{"id":"r66","numero":"66","producto":"Resina UltraFlow A2 jeringa 2gr","proveedor":"Megadental","cantidad":2,"precio":29325.36}],"entregas":[],"facturas":[]},{"id":"oc_26018263","numero":"26018263","organismo":"Hospital Materno Infantil","fecha":"2026-06-09","licitacion":"LP07/24","notas":"OC oficial verificada. $184.990,10.","estado":"activa","pendingItems":[],"renglones":[{"id":"r1","numero":"1","producto":"Agujas Carpule 30G x7/8-21mm x100 Tribiselada","proveedor":"Nipro","cantidad":2,"precio":29078.71},{"id":"r2","numero":"2","producto":"Ácido Fosfórico 37% x5gr Densell","proveedor":"Medrano","cantidad":2,"precio":18560.88},{"id":"r3","numero":"3","producto":"Adhesivo Fotocurado Esmalte Dentina x5ml Densell","proveedor":"Medrano","cantidad":2,"precio":44855.46}],"entregas":[],"facturas":[]},{"id":"oc_26018856","numero":"26018856","organismo":"Hospital San Bernardo","fecha":"2026-06-16","licitacion":"LP07/25","notas":"OC oficial verificada. $2.587.099,97.","estado":"activa","pendingItems":[],"renglones":[{"id":"r9","numero":"9","producto":"Banda Matriz Acero 5x7mm x3m Microdont","proveedor":"Medrano","cantidad":1,"precio":13307.30},{"id":"r11","numero":"11","producto":"Compresas Descartables x50 Ultra","proveedor":"Medrano","cantidad":20,"precio":6776.87},{"id":"r13","numero":"13","producto":"Conos Gutapercha Acc. FF Meta","proveedor":"Meta","cantidad":5,"precio":13368.91},{"id":"r14","numero":"14","producto":"Conos Gutapercha Acc. FM Meta","proveedor":"Meta","cantidad":5,"precio":13368.91},{"id":"r15","numero":"15","producto":"Conos Gutapercha Acc. M Meta","proveedor":"Meta","cantidad":5,"precio":13368.91},{"id":"r31","numero":"31","producto":"Eyectores p/saliva x100 Easydent","proveedor":"Medrano","cantidad":20,"precio":9857.26},{"id":"r36","numero":"36","producto":"Fresa Extralarga N°557 Turbina Jet","proveedor":"Megadental","cantidad":10,"precio":8994.75},{"id":"r40","numero":"40","producto":"Fresa Turbina Redonda N°4 Jet","proveedor":"Megadental","cantidad":10,"precio":4312.55},{"id":"r44","numero":"44","producto":"Goma Dique 6x6x36 Densell","proveedor":"Medrano","cantidad":10,"precio":30434.30},{"id":"r49","numero":"49","producto":"Lima K N°10 25mm Maillefer","proveedor":"Maillefer","cantidad":8,"precio":31420.02},{"id":"r50","numero":"50","producto":"Lima K N°15 25mm Maillefer","proveedor":"Maillefer","cantidad":8,"precio":31420.02},{"id":"r52","numero":"52","producto":"Lima Flex N°20 25mm Maillefer","proveedor":"Maillefer","cantidad":10,"precio":31420.02},{"id":"r53","numero":"53","producto":"Lima Flex N°25 25mm Maillefer","proveedor":"Maillefer","cantidad":8,"precio":31420.02},{"id":"r65","numero":"65","producto":"Placas RX D-Speed Adultos x100 Carestream","proveedor":"Carestream","cantidad":1,"precio":80090.26},{"id":"r66","numero":"66","producto":"Resina UltraFlow A2 jeringa 2gr","proveedor":"Megadental","cantidad":2,"precio":29325.36},{"id":"r67","numero":"67","producto":"Resina UltraFlow A3 jeringa 2gr","proveedor":"Megadental","cantidad":2,"precio":29325.36},{"id":"r73","numero":"73","producto":"Tijera Cirugía Curva Belkys","proveedor":"Poquet","cantidad":5,"precio":8009.03},{"id":"r74","numero":"74","producto":"Tijera Cirugía Recta Belkys","proveedor":"Poquet","cantidad":5,"precio":8009.03}],"entregas":[],"facturas":[]},{"id":"oc_26018852","numero":"26018852","organismo":"Hospital San Bernardo","fecha":"2026-06-16","licitacion":"LP07/24","notas":"OC oficial verificada. $428.292,30.","estado":"activa","pendingItems":[],"renglones":[{"id":"r1","numero":"1","producto":"Agujas Carpule 30G x7/8-21mm x100 Tribiselada","proveedor":"Nipro","cantidad":5,"precio":29078.71},{"id":"r3","numero":"3","producto":"Adhesivo Fotocurado Esmalte Dentina x5ml Densell","proveedor":"Medrano","cantidad":2,"precio":44855.46},{"id":"r4","numero":"4","producto":"Resina Fotocurado Dentina Color A2 x4gr","proveedor":"Medrano","cantidad":2,"precio":27067.95},{"id":"r5","numero":"5","producto":"Resina Fotocurado Dentina Color A3 x4gr","proveedor":"Medrano","cantidad":2,"precio":27067.95},{"id":"r6","numero":"6","producto":"Ionómero Vítreo Tipo 2 Restauración Avio 10gr+6ml","proveedor":"Medrano","cantidad":1,"precio":84916.03}],"entregas":[],"facturas":[]}];
+
+// ===== FIREBASE =====
+function setSyncDot(status) {
+  const d = document.getElementById('sync-dot');
+  d.className = 'sync-dot ' + status;
+  d.title = status==='ok'?'Sincronizado':status==='syncing'?'Sincronizando...':'Sin conexión';
+}
+
+async function saveOC(oc) {
+  setSyncDot('syncing');
+  try {
+    const key = oc.id.replace(/[.#$[\]]/g, '_');
+    await ref.child(key).set(oc);
+    setSyncDot('ok');
+    toast('Guardado ✓', 'success');
+  } catch(e) {
+    setSyncDot('error');
+    toast('Error al guardar: ' + e.message, 'error');
+  }
+}
+
+async function deleteOC(id) {
+  const key = id.replace(/[.#$[\]]/g, '_');
+  await ref.child(key).remove();
+}
+
+function initFirebase() {
+  setSyncDot('syncing');
+  ref.on('value', snap => {
+    const data = snap.val();
+    if (data) {
+      state.ocs = Object.values(data);
+    } else if (!state.loaded) {
+      // Primera vez: cargar seed
+      OCS_SEED.forEach(oc => saveOC(oc));
+      state.ocs = JSON.parse(JSON.stringify(OCS_SEED));
+    }
+    state.loaded = true;
+    setSyncDot('ok');
+    renderAll();
+  }, err => {
+    setSyncDot('error');
+    toast('Error de conexión con Firebase', 'error');
+  });
+}
+
+// ===== TOAST =====
+function toast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + type;
+  setTimeout(() => t.className = 'toast', 3000);
+}
+
+// ===== HELPERS =====
+function fmt(n){return Number(n||0).toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0});}
+function fN(n){return Number(n||0).toLocaleString('es-AR');}
+function pct(a,b){return b>0?Math.round(a/b*100):0;}
+function calcOC(oc){
+  const R=oc.renglones||[],E=oc.entregas||[],F=oc.facturas||[];
+  const montoOC=R.reduce((s,r)=>s+(r.cantidad||0)*(r.precio||0),0);
+  const totalEnt=R.reduce((s,r)=>{const e=E.reduce((a,en)=>a+(en.items||[]).reduce((b,i)=>i.renglon===r.id?b+(i.cantidad||0):b,0),0);return s+e*(r.precio||0);},0);
+  const totalFac=F.reduce((s,f)=>s+(f.monto||0),0);
+  return{montoOC,totalEnt,totalFac};
+}
+function getEnt(oc,rid){return(oc.entregas||[]).reduce((s,e)=>s+(e.items||[]).reduce((b,i)=>i.renglon===rid?b+(i.cantidad||0):b,0),0);}
+function countPending(){return state.ocs.reduce((s,o)=>s+(o.pendingItems||[]).length,0);}
+function updateBadge(){const n=countPending();const b=document.getElementById('badge-resolver');if(b){b.textContent=n;b.style.display=n>0?'inline':'none';}}
+function orgChip(org){
+  if(org==='Ministerio MSP') return '<span class="org-chip org-msp">MSP</span>';
+  if(org==='Hospital San Bernardo') return '<span class="org-chip org-hsb">HSB</span>';
+  if(org==='Hospital Materno Infantil') return '<span class="org-chip org-hpmi">HPMI</span>';
+  return '<span class="org-chip" style="background:#F3F4F6;color:#374151">'+org+'</span>';
+}
+function estadoBadge(oc,c){
+  if(oc.estado==='cerrada') return '<span class="badge gray">Cerrada</span>';
+  if((oc.pendingItems||[]).length>0) return '<span class="badge orange">⚠ Por resolver</span>';
+  const pE=pct(c.totalEnt,c.montoOC);
+  if(pE>=100&&pct(c.totalFac,c.montoOC)>=100) return '<span class="badge green">Completa</span>';
+  if(pE>=100) return '<span class="badge amber">Sin facturar</span>';
+  if(pE>0) return '<span class="badge amber">Parcial</span>';
+  return '<span class="badge red">Pendiente</span>';
+}
+function getOrg(){return document.getElementById('fil-org-g')?.value||'';}
+
+// ===== NAV =====
+function showPage(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  const nv=document.getElementById('nav-'+id);if(nv)nv.classList.add('active');
+  document.getElementById('topbar-title').textContent=PAGE_TITLES[id]||'';
+  state.currentPage=id;
+  if(id==='dashboard')renderDash();
+  if(id==='ocs')renderOCs();
+  if(id==='pendientes')renderPendientes();
+  if(id==='sin-facturar')renderSinFacturar();
+  if(id==='proveedores')renderProveedores();
+  if(id==='resolver')renderResolver();
+}
+function renderCurrentPage(){showPage(state.currentPage);}
+function renderAll(){updateBadge();renderDash();}
+
+// ===== DASHBOARD =====
+function renderDash(){
+  updateBadge();
+  const org=getOrg();
+  const ocs=state.ocs.filter(o=>o.estado!=='cerrada'&&(!org||o.organismo===org));
+  let tM=0,tE=0,tF=0;
+  ocs.forEach(o=>{const c=calcOC(o);tM+=c.montoOC;tE+=c.totalEnt;tF+=c.totalFac;});
+  const pend=countPending();
+  document.getElementById('dash-cards').innerHTML=
+    '<div class="card ab"><div class="lbl">OCs activas</div><div class="val">'+ocs.length+'</div></div>'+
+    '<div class="card"><div class="lbl">Total OCs</div><div class="val">'+fmt(tM)+'</div></div>'+
+    '<div class="card"><div class="lbl">Entregado</div><div class="val">'+fmt(tE)+'</div><div class="sub" style="color:var(--od-blue)">'+pct(tE,tM)+'%</div></div>'+
+    '<div class="card"><div class="lbl">Facturado</div><div class="val">'+fmt(tF)+'</div><div class="sub" style="color:var(--od-blue)">'+pct(tF,tM)+'%</div></div>'+
+    '<div class="card ao"><div class="lbl">Pend. entrega</div><div class="val" style="color:var(--od-orange)">'+fmt(tM-tE)+'</div></div>'+
+    (pend>0?'<div class="card" style="border:2px solid var(--od-orange)"><div class="lbl" style="color:var(--od-orange)">⚠ Por resolver</div><div class="val" style="color:var(--od-orange)">'+pend+'</div><div class="sub"><button class="btn orange sm" onclick="showPage(\'resolver\')" style="margin-top:4px">Ver ahora</button></div></div>':'');
+  const tb=document.getElementById('dash-tbody');
+  if(!ocs.length){tb.innerHTML='<tr><td colspan="8"><div class="empty"><i class="ti ti-file-invoice"></i>Sin OCs activas</div></td></tr>';return;}
+  tb.innerHTML=ocs.map(o=>{const c=calcOC(o),pE=pct(c.totalEnt,c.montoOC);return'<tr>'+
+    '<td><strong style="color:var(--od-blue)">'+o.numero+'</strong></td>'+
+    '<td>'+orgChip(o.organismo)+'</td>'+
+    '<td style="font-size:11px;color:var(--text-muted)">'+o.licitacion+'</td>'+
+    '<td>'+fmt(c.montoOC)+'</td>'+
+    '<td><div style="display:flex;align-items:center;gap:6px"><div class="pm" style="width:50px"><div class="pf" style="width:'+pE+'%;background:'+(pE>=100?'#16A34A':pE>=50?'var(--od-orange)':'#EF4444')+'"></div></div><span style="font-size:11px">'+pE+'%</span></div></td>'+
+    '<td style="font-size:12px">'+fmt(c.totalFac)+'</td>'+
+    '<td>'+estadoBadge(o,c)+'</td>'+
+    '<td><button class="btn sm" onclick="verDetalle(\''+o.id+'\')" style="color:var(--od-blue);border-color:var(--od-blue)">Ver</button></td></tr>';}).join('');
+}
+
+// ===== OCs =====
+function renderOCs(){
+  const org=document.getElementById('fo-org')?.value||'';
+  const lp=document.getElementById('fo-lp')?.value||'';
+  const est=document.getElementById('fo-est')?.value||'';
+  const bus=(document.getElementById('fo-bus')?.value||'').toLowerCase();
+  const ocs=state.ocs.filter(o=>(!org||o.organismo===org)&&(!lp||o.licitacion===lp)&&(!est||o.estado===est||(!o.estado&&est==='activa'))&&(!bus||o.numero.includes(bus)));
+  const tb=document.getElementById('ocs-tbody');
+  if(!ocs.length){tb.innerHTML='<tr><td colspan="9"><div class="empty"><i class="ti ti-file-invoice"></i>Sin OCs</div></td></tr>';return;}
+  tb.innerHTML=ocs.map(o=>{const c=calcOC(o);return'<tr>'+
+    '<td><strong style="color:var(--od-blue)">'+o.numero+'</strong></td>'+
+    '<td>'+orgChip(o.organismo)+'</td>'+
+    '<td style="font-size:11px;color:var(--text-muted)">'+o.licitacion+'</td>'+
+    '<td style="font-size:12px;color:var(--text-muted)">'+(o.fecha||'-')+'</td>'+
+    '<td>'+fmt(c.montoOC)+'</td><td>'+fmt(c.totalEnt)+'</td><td>'+fmt(c.totalFac)+'</td>'+
+    '<td>'+estadoBadge(o,c)+'</td>'+
+    '<td><button class="btn sm" onclick="verDetalle(\''+o.id+'\')" style="color:var(--od-blue);border-color:var(--od-blue)">Ver</button></td></tr>';}).join('');
+}
+
+// ===== DETALLE =====
+function verDetalle(id){state.currentOC=id;showPage('detalle');document.getElementById('nav-ocs').classList.add('active');document.getElementById('topbar-title').textContent='Detalle de OC';renderDetalle(state.ocs.find(o=>o.id===id));}
+function renderDetalle(oc){
+  if(!oc)return;
+  const c=calcOC(oc),isCerrada=oc.estado==='cerrada',pendN=(oc.pendingItems||[]).length;
+  const rH=(oc.renglones||[]).map(r=>{const e=getEnt(oc,r.id),f=Math.max(0,(r.cantidad||0)-e);
+    return'<tr><td style="font-size:11px;color:var(--text-muted)">'+r.numero+'</td><td>'+r.producto+'</td><td><span class="ptag">'+(r.proveedor||'-')+'</span></td><td>'+fN(r.cantidad)+'</td><td>'+fN(e)+'</td><td style="color:'+(f>0?'var(--od-orange)':'#16A34A')+';font-weight:'+(f>0?600:400)+'">'+fN(f)+'</td><td>'+(f<=0?'<span class="badge green">OK</span>':e>0?'<span class="badge amber">Parcial</span>':'<span class="badge red">Pendiente</span>')+'</td></tr>';}).join('');
+  const eH=(oc.entregas||[]).length?(oc.entregas||[]).map(e=>{
+    const fac=(oc.facturas||[]).some(f=>(f.remitos||[]).includes(e.remito));
+    const items=(e.items||[]).filter(i=>i.cantidad>0).map(i=>{const r=(oc.renglones||[]).find(x=>x.id===i.renglon);return r?r.producto+': '+fN(i.cantidad)+' u.':''}).filter(Boolean).join(' · ');
+    return'<div class="ent-card '+(fac?'fac':'')+'"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><div><strong style="color:var(--od-blue)">Remito '+e.remito+'</strong> <span style="font-size:12px;color:var(--text-muted)">'+(e.fecha||'')+'</span></div>'+(fac?'<span class="badge green">Facturado</span>':'<span class="badge orange">Sin facturar</span>')+'</div><div style="font-size:12px;color:var(--text-muted)">'+(items||'Sin ítems')+'</div></div>';}).join(''):'<div class="empty"><i class="ti ti-truck"></i>Sin entregas</div>';
+  const fH=(oc.facturas||[]).length?(oc.facturas||[]).map(f=>'<div class="fac-card"><div style="display:flex;justify-content:space-between"><div><strong style="color:var(--od-blue)">Fac. '+f.numero+'</strong> <span style="font-size:12px;color:var(--text-muted)">'+(f.fecha||'')+'</span></div><div style="font-weight:600">'+fmt(f.monto)+'</div></div><div style="font-size:12px;color:var(--text-muted);margin-top:2px">Remitos: '+((f.remitos||[]).join(', ')||'-')+'</div></div>').join(''):'<div class="empty"><i class="ti ti-file-invoice"></i>Sin facturas</div>';
+  document.getElementById('detalle-content').innerHTML=
+    '<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem">'+
+    '<div><div style="font-size:17px;font-weight:700;color:var(--od-blue)">OC '+oc.numero+'</div><div style="font-size:12px;color:var(--text-muted);margin-top:2px">'+oc.organismo+' · '+oc.licitacion+' · '+(oc.fecha||'')+'</div></div>'+
+    '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
+    (!isCerrada?'<button class="btn" onclick="openEntrega(\''+oc.id+'\')"><i class="ti ti-truck"></i> Entrega</button>':'')+
+    (!isCerrada?'<button class="btn" onclick="openFactura(\''+oc.id+'\')"><i class="ti ti-file-invoice"></i> Factura</button>':'')+
+    (!isCerrada?'<button class="btn" onclick="editarOC(\''+oc.id+'\')"><i class="ti ti-pencil"></i> Editar</button>':'')+
+    (!isCerrada?'<button class="btn danger" onclick="cerrarOC(\''+oc.id+'\')"><i class="ti ti-lock"></i> Cerrar</button>':'')+
+    '<button class="btn danger" onclick="eliminarOC(\''+oc.id+'\')"><i class="ti ti-trash"></i> Eliminar</button>'+
+    '</div></div>'+
+    (oc.notas?'<div class="nota-box"><i class="ti ti-info-circle"></i><span>'+oc.notas+'</span></div>':'')+
+    (pendN>0?'<div class="alert-box"><i class="ti ti-alert-triangle"></i><span>'+pendN+' ítem'+(pendN>1?'s':'')+' sin asignar. <button class="btn sm" onclick="showPage(\'resolver\')" style="margin-left:8px;color:var(--od-orange);border-color:var(--od-orange)">Resolver</button></span></div>':'')+
+    '<div class="detail-header">'+
+    '<div class="detail-card"><div class="dl">Monto OC</div><div class="dv">'+fmt(c.montoOC)+'</div></div>'+
+    '<div class="detail-card" style="border-left:3px solid var(--od-blue)"><div class="dl">Entregado</div><div class="dv">'+fmt(c.totalEnt)+' <span style="font-size:11px;color:var(--od-blue)">'+pct(c.totalEnt,c.montoOC)+'%</span></div></div>'+
+    '<div class="detail-card"><div class="dl">Facturado</div><div class="dv">'+fmt(c.totalFac)+'</div></div>'+
+    '<div class="detail-card" style="border-left:3px solid var(--od-orange)"><div class="dl">Pend. entrega</div><div class="dv" style="color:var(--od-orange)">'+fmt(Math.max(0,c.montoOC-c.totalEnt))+'</div></div>'+
+    '<div class="detail-card"><div class="dl">Pend. facturar</div><div class="dv" style="color:#B45309">'+fmt(Math.max(0,c.totalEnt-c.totalFac))+'</div></div>'+
+    '</div>'+
+    '<div class="tabs"><button class="tab active" onclick="switchTab(this,\'tp-r\')">Renglones ('+(oc.renglones||[]).length+')</button><button class="tab" onclick="switchTab(this,\'tp-e\')">Entregas ('+(oc.entregas||[]).length+')</button><button class="tab" onclick="switchTab(this,\'tp-f\')">Facturas ('+(oc.facturas||[]).length+')</button></div>'+
+    '<div class="tab-pane active" id="tp-r"><div class="table-wrap"><table><thead><tr><th>R°</th><th>Producto</th><th>Proveedor</th><th>Pedido</th><th>Entregado</th><th>Falta</th><th>Estado</th></tr></thead><tbody>'+rH+'</tbody></table></div></div>'+
+    '<div class="tab-pane" id="tp-e">'+eH+'</div>'+
+    '<div class="tab-pane" id="tp-f">'+fH+'</div>';
+}
+function switchTab(btn,pid){const c=btn.closest('.page');c.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));c.querySelectorAll('.tab-pane').forEach(t=>t.classList.remove('active'));btn.classList.add('active');const p=document.getElementById(pid);if(p)p.classList.add('active');}
+
+// ===== PENDIENTES =====
+function renderPendientes(){
+  const prov=document.getElementById('fp-prov')?.value||'';
+  const org=getOrg();
+  const provs=[...new Set(state.ocs.flatMap(o=>(o.renglones||[]).map(r=>r.proveedor).filter(Boolean)))].sort();
+  const sel=document.getElementById('fp-prov');
+  if(sel){const cur=sel.value;sel.innerHTML='<option value="">Todos los proveedores</option>';provs.forEach(p=>{const op=document.createElement('option');op.value=p;op.textContent=p;sel.appendChild(op);});sel.value=cur;}
+  const tb=document.getElementById('pend-tbody');
+  let rows=[];
+  state.ocs.filter(o=>o.estado!=='cerrada'&&(!org||o.organismo===org)).forEach(oc=>{
+    (oc.renglones||[]).forEach(r=>{if(prov&&r.proveedor!==prov)return;const e=getEnt(oc,r.id),f=Math.max(0,(r.cantidad||0)-e);if(f>0)rows.push({oc,r,e,f});});
+  });
+  if(!rows.length){tb.innerHTML='<tr><td colspan="8"><div class="empty"><i class="ti ti-check"></i>Sin pendientes</div></td></tr>';return;}
+  tb.innerHTML=rows.map(x=>'<tr>'+
+    '<td><button class="btn sm" onclick="verDetalle(\''+x.oc.id+'\')" style="color:var(--od-blue);border-color:var(--od-blue);padding:2px 8px">'+x.oc.numero+'</button></td>'+
+    '<td>'+orgChip(x.oc.organismo)+'</td>'+
+    '<td style="font-size:11px;color:var(--text-muted)">'+x.r.numero+'</td>'+
+    '<td>'+x.r.producto+'</td><td><span class="ptag">'+(x.r.proveedor||'-')+'</span></td>'+
+    '<td>'+fN(x.r.cantidad)+'</td><td>'+fN(x.e)+'</td>'+
+    '<td style="font-weight:600;color:var(--od-orange)">'+fN(x.f)+'</td></tr>').join('');
+}
+
+// ===== SIN FACTURAR =====
+function renderSinFacturar(){
+  const org=getOrg();
+  const tb=document.getElementById('sf-tbody');
+  let rows=[];
+  state.ocs.filter(o=>o.estado!=='cerrada'&&(!org||o.organismo===org)).forEach(oc=>{
+    (oc.entregas||[]).forEach(e=>{const fac=(oc.facturas||[]).some(f=>(f.remitos||[]).includes(e.remito));if(!fac){const val=(e.items||[]).reduce((s,i)=>{const r=(oc.renglones||[]).find(x=>x.id===i.renglon);return s+(r?(i.cantidad||0)*(r.precio||0):0);},0);rows.push({oc,e,val,n:(e.items||[]).filter(i=>i.cantidad>0).length});}});
+  });
+  if(!rows.length){tb.innerHTML='<tr><td colspan="7"><div class="empty"><i class="ti ti-check"></i>Todo facturado</div></td></tr>';return;}
+  tb.innerHTML=rows.map(x=>'<tr>'+
+    '<td><button class="btn sm" onclick="verDetalle(\''+x.oc.id+'\')" style="color:var(--od-blue);border-color:var(--od-blue);padding:2px 8px">'+x.oc.numero+'</button></td>'+
+    '<td>'+orgChip(x.oc.organismo)+'</td>'+
+    '<td><strong style="color:var(--od-blue)">'+x.e.remito+'</strong></td>'+
+    '<td style="font-size:12px;color:var(--text-muted)">'+(x.e.fecha||'-')+'</td>'+
+    '<td style="font-size:12px">'+x.n+' ítem'+(x.n!==1?'s':'')+'</td>'+
+    '<td style="font-weight:600;color:var(--od-orange)">'+fmt(x.val)+'</td>'+
+    '<td><span class="badge orange">Sin facturar</span></td></tr>').join('');
+}
+
+// ===== PROVEEDORES =====
+function renderProveedores(){
+  const org=getOrg();
+  const el=document.getElementById('prov-content');
+  const pm={};
+  state.ocs.filter(o=>o.estado!=='cerrada'&&(!org||o.organismo===org)).forEach(oc=>{
+    (oc.renglones||[]).forEach(r=>{const e=getEnt(oc,r.id),f=Math.max(0,(r.cantidad||0)-e);if(f<=0)return;const p=r.proveedor||'Sin proveedor';if(!pm[p])pm[p]=[];pm[p].push({oc,r,f});});
+  });
+  if(!Object.keys(pm).length){el.innerHTML='<div class="empty"><i class="ti ti-check"></i>Sin pendientes por proveedor</div>';return;}
+  el.innerHTML=Object.entries(pm).sort((a,b)=>a[0].localeCompare(b[0])).map(([p,items])=>
+    '<div style="margin-bottom:1.5rem"><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span class="ptag" style="font-size:13px;padding:3px 12px;font-weight:600">'+p+'</span><span style="font-size:12px;color:var(--text-muted)">'+items.length+' ítem'+(items.length!==1?'s':'')+' pendiente'+(items.length!==1?'s':'')+'</span></div>'+
+    '<div class="table-wrap"><table><thead><tr><th>OC</th><th>Organismo</th><th>R°</th><th>Producto</th><th>Falta</th></tr></thead><tbody>'+
+    items.map(x=>'<tr><td><button class="btn sm" onclick="verDetalle(\''+x.oc.id+'\')" style="color:var(--od-blue);border-color:var(--od-blue);padding:2px 8px">'+x.oc.numero+'</button></td><td>'+orgChip(x.oc.organismo)+'</td><td style="font-size:11px;color:var(--text-muted)">'+x.r.numero+'</td><td>'+x.r.producto+'</td><td style="font-weight:600;color:var(--od-orange)">'+fN(x.f)+'</td></tr>').join('')+
+    '</tbody></table></div></div>').join('');
+}
+
+// ===== RESOLVER =====
+function renderResolver(){
+  const el=document.getElementById('resolver-content');
+  const all=[];state.ocs.forEach(oc=>{(oc.pendingItems||[]).forEach(p=>all.push({oc,p}));});
+  if(!all.length){el.innerHTML='<div class="empty" style="padding:3rem"><i class="ti ti-check"></i>No hay ítems pendientes.</div>';return;}
+  el.innerHTML='<div class="nota-box" style="margin-bottom:1rem"><i class="ti ti-info-circle"></i>Ítems de remitos que no pudieron asignarse automáticamente.</div>'+
+    '<div class="table-wrap"><table><thead><tr><th>OC</th><th>Organismo</th><th>Remito</th><th>Fecha</th><th>Producto</th><th>Cant.</th><th></th></tr></thead><tbody>'+
+    all.map(({oc,p})=>'<tr><td><strong style="color:var(--od-blue)">'+oc.numero+'</strong></td><td>'+orgChip(oc.organismo)+'</td><td style="font-size:12px">'+p.remito+'</td><td style="font-size:11px;color:var(--text-muted)">'+(p.fecha||'-')+'</td><td>'+p.descripcion+'</td><td>'+fN(p.cantidad)+'</td><td><button class="btn sm orange" onclick="resolverItem(\''+oc.id+'\',\''+p.id+'\')">Resolver</button></td></tr>').join('')+
+    '</tbody></table></div>';
+}
+
+function resolverItem(ocId,itemId){
+  const oc=state.ocs.find(o=>o.id===ocId);const item=(oc?.pendingItems||[]).find(p=>p.id===itemId);if(!oc||!item)return;
+  state.currentResolver={ocId,itemId};
+  document.getElementById('mres-remito').textContent=item.remito;
+  document.getElementById('mres-content').innerHTML=
+    '<div style="margin-bottom:1rem;padding:.75rem 1rem;background:var(--od-blue-light);border-radius:var(--r)"><div style="font-size:11px;color:var(--od-blue);margin-bottom:2px">Ítem a asignar</div><div style="font-weight:600">'+item.descripcion+'</div><div style="font-size:12px;color:var(--text-muted)">Cantidad: '+fN(item.cantidad)+'</div></div>'+
+    '<div class="form-row"><label class="form-label">Asignar al renglón de la OC '+oc.numero+'</label><select id="res-renglon"><option value="">— Seleccioná un renglón —</option>'+
+    (oc.renglones||[]).map(r=>'<option value="'+r.id+'">R°'+r.numero+': '+r.producto+' (falta: '+fN(Math.max(0,(r.cantidad||0)-getEnt(oc,r.id)))+' u.)</option>').join('')+
+    '<option value="IGNORAR">Ignorar</option></select></div>'+
+    '<div class="form-row"><label class="form-label">Cantidad</label><input type="number" id="res-cant" value="'+item.cantidad+'" style="width:120px"></div>';
+  openModal('modal-resolver');
+}
+
+async function confirmarResolucion(){
+  const {ocId,itemId}=state.currentResolver||{};
+  const oc=state.ocs.find(o=>o.id===ocId);const item=(oc?.pendingItems||[]).find(p=>p.id===itemId);if(!oc||!item)return;
+  const rid=document.getElementById('res-renglon')?.value;const cant=parseFloat(document.getElementById('res-cant')?.value)||0;
+  if(!rid){alert('Seleccioná un renglón');return;}
+  if(rid!=='IGNORAR'){let e=oc.entregas.find(e=>e.remito===item.remito);if(!e){e={id:'e'+Date.now(),remito:item.remito,fecha:item.fecha,items:[]};oc.entregas.push(e);}const ex=e.items.find(i=>i.renglon===rid);if(ex)ex.cantidad+=cant;else e.items.push({renglon:rid,cantidad:cant});}
+  oc.pendingItems=oc.pendingItems.filter(p=>p.id!==itemId);
+  await saveOC(oc);closeModal('modal-resolver');updateBadge();renderResolver();
+  if(state.currentOC===ocId)renderDetalle(oc);
+}
+
+// ===== MODAL OC =====
+function openNuevaOC(){
+  rcnt=0;
+  ['moc-num','moc-notas'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('moc-fecha').value=new Date().toISOString().slice(0,10);
+  document.getElementById('moc-rngl').innerHTML='';
+  document.querySelector('#modal-oc .modal-title').textContent='Nueva orden de compra';
+  document.querySelector('#modal-oc .btn.primary').onclick=guardarOC;
+  addRenglon();openModal('modal-oc');
+}
+
+function editarOC(id){
+  const oc=state.ocs.find(o=>o.id===id);if(!oc)return;
+  rcnt=0;
+  document.getElementById('moc-num').value=oc.numero||'';
+  document.getElementById('moc-notas').value=oc.notas||'';
+  document.getElementById('moc-fecha').value=oc.fecha||'';
+  document.getElementById('moc-org').value=oc.organismo||'Ministerio MSP';
+  document.getElementById('moc-lp').value=oc.licitacion||'LP07/25';
+  document.getElementById('moc-rngl').innerHTML='';
+  (oc.renglones||[]).forEach(r=>{
+    rcnt++;const rid='r'+rcnt;
+    const opts=PROVEEDORES.map(p=>'<option value="'+p+'" '+(r.proveedor===p?'selected':'')+'>'+p+'</option>').join('');
+    const tr=document.createElement('tr');tr.id='rr-'+rid;tr.dataset.oid=r.id;
+    tr.innerHTML='<td><input style="width:38px" value="'+(r.numero||'')+'" id="rn-'+rid+'"></td><td><input value="'+(r.producto||'')+'" id="rp-'+rid+'" placeholder="Producto"></td><td><select id="rv-'+rid+'"><option value="">-</option>'+opts+'</select></td><td><input type="number" style="width:55px" value="'+(r.cantidad||'')+'" id="rc-'+rid+'"></td><td><input type="number" style="width:80px" value="'+(r.precio||'')+'" id="rpr-'+rid+'"></td><td><button class="btn sm" onclick="this.closest('tr').remove()"><i class="ti ti-x"></i></button></td>';
+    document.getElementById('moc-rngl').appendChild(tr);
+  });
+  document.querySelector('#modal-oc .modal-title').textContent='Editar OC '+oc.numero;
+  document.querySelector('#modal-oc .btn.primary').onclick=()=>guardarEdicionOC(id);
+  openModal('modal-oc');
+}
+
+async function guardarEdicionOC(id){
+  const oc=state.ocs.find(o=>o.id===id);if(!oc)return;
+  const rows=[...document.getElementById('moc-rngl').querySelectorAll('tr')];
+  oc.numero=document.getElementById('moc-num').value.trim();
+  oc.organismo=document.getElementById('moc-org').value;
+  oc.fecha=document.getElementById('moc-fecha').value;
+  oc.licitacion=document.getElementById('moc-lp').value;
+  oc.notas=document.getElementById('moc-notas').value;
+  oc.renglones=rows.map(tr=>({
+    id:tr.dataset.oid,
+    numero:tr.querySelector('[id^=rn-]')?.value||'',
+    producto:tr.querySelector('[id^=rp-]')?.value||'',
+    proveedor:tr.querySelector('[id^=rv-]')?.value||'',
+    cantidad:parseFloat(tr.querySelector('[id^=rc-]')?.value)||0,
+    precio:parseFloat(tr.querySelector('[id^=rpr-]')?.value)||0
+  })).filter(r=>r.producto);
+  await saveOC(oc);closeModal('modal-oc');renderDetalle(oc);
+  toast('OC '+oc.numero+' actualizada','success');
+}
+
+async function eliminarOC(id){
+  const oc=state.ocs.find(o=>o.id===id);if(!oc)return;
+  if(!confirm('¿Eliminar definitivamente la OC '+oc.numero+'?\nEsta acción no se puede deshacer.')){return;}
+  try{
+    const key=id.replace(/[.#$[\]]/g,'_');
+    await db.ref('ocs').child(key).remove();
+    toast('OC '+oc.numero+' eliminada','success');
+    showPage('ocs');
+  }catch(e){toast('Error al eliminar: '+e.message,'error');}
+}
+function addRenglon(d){
+  rcnt++;const id='r'+rcnt;
+  const opts=PROVEEDORES.map(p=>'<option value="'+p+'" '+(d?.proveedor===p?'selected':'')+'>'+p+'</option>').join('');
+  const tr=document.createElement('tr');tr.id='rr-'+id;tr.dataset.oid=d?.id||id;
+  tr.innerHTML='<td><input style="width:38px" value="'+(d?.numero||rcnt)+'" id="rn-'+id+'"></td><td><input value="'+(d?.producto||'')+'" id="rp-'+id+'" placeholder="Producto"></td><td><select id="rv-'+id+'"><option value="">-</option>'+opts+'</select></td><td><input type="number" style="width:55px" value="'+(d?.cantidad||'')+'" id="rc-'+id+'"></td><td><input type="number" style="width:80px" value="'+(d?.precio||'')+'" id="rpr-'+id+'"></td><td><button class="btn sm" onclick="this.closest(\'tr\').remove()"><i class="ti ti-x"></i></button></td>';
+  document.getElementById('moc-rngl').appendChild(tr);
+}
+async function guardarOC(){
+  const num=document.getElementById('moc-num').value.trim();if(!num){alert('Ingresá el N° de OC');return;}
+  const rows=[...document.getElementById('moc-rngl').querySelectorAll('tr')];
+  const renglones=rows.map(tr=>({id:tr.dataset.oid,numero:tr.querySelector('[id^=rn-]')?.value||'',producto:tr.querySelector('[id^=rp-]')?.value||'',proveedor:tr.querySelector('[id^=rv-]')?.value||'',cantidad:parseFloat(tr.querySelector('[id^=rc-]')?.value)||0,precio:parseFloat(tr.querySelector('[id^=rpr-]')?.value)||0})).filter(r=>r.producto);
+  const oc={id:'oc'+Date.now(),numero:num,organismo:document.getElementById('moc-org').value,fecha:document.getElementById('moc-fecha').value,licitacion:document.getElementById('moc-lp').value,notas:document.getElementById('moc-notas').value,renglones,entregas:[],facturas:[],estado:'activa',pendingItems:[]};
+  await saveOC(oc);closeModal('modal-oc');
+}
+
+// ===== MODAL ENTREGA =====
+function openEntrega(ocId){
+  const oc=state.ocs.find(o=>o.id===ocId);if(!oc)return;
+  state.currentOC=ocId;
+  document.getElementById('ment-ocnum').textContent=oc.numero;
+  document.getElementById('ment-remito').value='';
+  document.getElementById('ment-fecha').value=new Date().toISOString().slice(0,10);
+  document.getElementById('ment-tbody').innerHTML=(oc.renglones||[]).map(r=>{const e=getEnt(oc,r.id),f=Math.max(0,(r.cantidad||0)-e);return'<tr><td style="font-size:11px">'+r.numero+'</td><td style="font-size:12px">'+r.producto+'</td><td style="color:'+(f>0?'var(--od-orange)':'var(--text-muted)')+'">'+fN(f)+'</td><td><input type="number" min="0" style="width:70px" id="eq-'+r.id+'" value="0"></td></tr>';}).join('');
+  openModal('modal-entrega');
+}
+async function guardarEntrega(){
+  const oc=state.ocs.find(o=>o.id===state.currentOC);if(!oc)return;
+  const remito=document.getElementById('ment-remito').value.trim();if(!remito){alert('Ingresá el N° de remito');return;}
+  const items=[];(oc.renglones||[]).forEach(r=>{const q=parseFloat(document.getElementById('eq-'+r.id)?.value)||0;if(q>0)items.push({renglon:r.id,cantidad:q});});
+  if(!items.length){alert('Ingresá al menos una cantidad');return;}
+  if(!oc.entregas)oc.entregas=[];
+  oc.entregas.push({id:'e'+Date.now(),remito,fecha:document.getElementById('ment-fecha').value,items});
+  await saveOC(oc);closeModal('modal-entrega');renderDetalle(oc);
+}
+
+// ===== MODAL FACTURA =====
+function openFactura(ocId){
+  state.currentOC=ocId;const oc=state.ocs.find(o=>o.id===ocId);
+  document.getElementById('mfac-ocnum').textContent=oc?.numero||'';
+  ['mfac-num','mfac-remitos','mfac-monto'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('mfac-fecha').value=new Date().toISOString().slice(0,10);
+  openModal('modal-factura');
+}
+async function guardarFactura(){
+  const oc=state.ocs.find(o=>o.id===state.currentOC);if(!oc)return;
+  const num=document.getElementById('mfac-num').value.trim();if(!num){alert('Ingresá el N° de factura');return;}
+  if(!oc.facturas)oc.facturas=[];
+  oc.facturas.push({id:'f'+Date.now(),numero:num,fecha:document.getElementById('mfac-fecha').value,remitos:document.getElementById('mfac-remitos').value.split(',').map(r=>r.trim()).filter(Boolean),monto:parseFloat(document.getElementById('mfac-monto').value)||0});
+  await saveOC(oc);closeModal('modal-factura');renderDetalle(oc);
+}
+
+// ===== CERRAR OC =====
+async function cerrarOC(id){
+  const oc=state.ocs.find(o=>o.id===id);if(!oc)return;
+  if(confirm('¿Cerrar OC '+oc.numero+'?')){oc.estado='cerrada';await saveOC(oc);renderDetalle(oc);}
+}
+
+function openModal(id){document.getElementById(id).classList.add('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+
+// ===== INIT =====
+initFirebase();
+</script>
+</body>
+</html>
