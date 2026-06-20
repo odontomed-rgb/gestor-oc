@@ -568,7 +568,7 @@ function editarOC(id){
       +'<td><select id="rv-'+rid+'"><option value="">-</option>'+opts+'</select></td>'
       +'<td><input type="number" style="width:55px" value="'+(r.cantidad||'')+'" id="rc-'+rid+'"></td>'
       +'<td><input type="number" style="width:80px" value="'+(r.precio||'')+'" id="rpr-'+rid+'"></td>'
-      +'<td><button class="btn sm" onclick="this.closest('tr').remove()"><i class=\"ti ti-x\"></i></button></td>';
+      +'<td><button class="btn sm" onclick="this.parentNode.parentNode.remove()"><i class="ti ti-x"></i></button></td>';
     document.getElementById('moc-rngl').appendChild(row);
   });
   document.querySelector('#modal-oc .modal-title').textContent='Editar OC '+oc.numero;
