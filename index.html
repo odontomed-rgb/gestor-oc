@@ -556,15 +556,23 @@ function editarOC(id){
   document.getElementById('moc-org').value=oc.organismo||'Ministerio MSP';
   document.getElementById('moc-lp').value=oc.licitacion||'LP07/25';
   document.getElementById('moc-rngl').innerHTML='';
-  (oc.renglones||[]).forEach(r=>{
-    rcnt++;const rid='r'+rcnt;
-    const opts=PROVEEDORES.map(p=>'<option value="'+p+'" '+(r.proveedor===p?'selected':'')+'>'+p+'</option>').join('');
-    const tr=document.createElement('tr');tr.id='rr-'+rid;tr.dataset.oid=r.id;
-    tr.innerHTML='<td><input style="width:38px" value="'+(r.numero||'')+'" id="rn-'+rid+'"></td><td><input value="'+(r.producto||'')+'" id="rp-'+rid+'" placeholder="Producto"></td><td><select id="rv-'+rid+'"><option value="">-</option>'+opts+'</select></td><td><input type="number" style="width:55px" value="'+(r.cantidad||'')+'" id="rc-'+rid+'"></td><td><input type="number" style="width:80px" value="'+(r.precio||'')+'" id="rpr-'+rid+'"></td><td><button class="btn sm" onclick="this.closest('tr').remove()"><i class="ti ti-x"></i></button></td>';
-    document.getElementById('moc-rngl').appendChild(tr);
+  (oc.renglones||[]).forEach(function(r){
+    rcnt++;
+    var rid='r'+rcnt;
+    var opts=PROVEEDORES.map(function(p){return '<option value="'+p+'" '+(r.proveedor===p?'selected':'')+'>'+p+'</option>';}).join('');
+    var row=document.createElement('tr');
+    row.id='rr-'+rid;
+    row.dataset.oid=r.id;
+    row.innerHTML='<td><input style="width:38px" value="'+(r.numero||'')+'" id="rn-'+rid+'"></td>'
+      +'<td><input value="'+(r.producto||'').replace(/"/g,"&quot;")+'" id="rp-'+rid+'" placeholder="Producto"></td>'
+      +'<td><select id="rv-'+rid+'"><option value="">-</option>'+opts+'</select></td>'
+      +'<td><input type="number" style="width:55px" value="'+(r.cantidad||'')+'" id="rc-'+rid+'"></td>'
+      +'<td><input type="number" style="width:80px" value="'+(r.precio||'')+'" id="rpr-'+rid+'"></td>'
+      +'<td><button class="btn sm" onclick="this.closest('tr').remove()"><i class=\"ti ti-x\"></i></button></td>';
+    document.getElementById('moc-rngl').appendChild(row);
   });
   document.querySelector('#modal-oc .modal-title').textContent='Editar OC '+oc.numero;
-  document.querySelector('#modal-oc .btn.primary').onclick=()=>guardarEdicionOC(id);
+  document.querySelector('#modal-oc .btn.primary').onclick=function(){guardarEdicionOC(id);};
   openModal('modal-oc');
 }
 
