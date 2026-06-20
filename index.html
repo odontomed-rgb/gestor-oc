@@ -424,7 +424,9 @@ function renderDetalle(oc){
     '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
     (!isCerrada?'<button class="btn" onclick="openEntrega(\''+oc.id+'\')"><i class="ti ti-truck"></i> Entrega</button>':'')+
     (!isCerrada?'<button class="btn" onclick="openFactura(\''+oc.id+'\')"><i class="ti ti-file-invoice"></i> Factura</button>':'')+
+    (!isCerrada?'<button class="btn" onclick="editarOC(\''+oc.id+'\')"><i class="ti ti-pencil"></i> Editar</button>':'')+
     (!isCerrada?'<button class="btn danger" onclick="cerrarOC(\''+oc.id+'\')"><i class="ti ti-lock"></i> Cerrar</button>':'')+
+    '<button class="btn danger" onclick="eliminarOC(\''+oc.id+'\')"><i class="ti ti-trash"></i> Eliminar</button>'+
     '</div></div>'+
     (oc.notas?'<div class="nota-box"><i class="ti ti-info-circle"></i><span>'+oc.notas+'</span></div>':'')+
     (pendN>0?'<div class="alert-box"><i class="ti ti-alert-triangle"></i><span>'+pendN+' ítem'+(pendN>1?'s':'')+' sin asignar. <button class="btn sm" onclick="showPage(\'resolver\')" style="margin-left:8px;color:var(--od-orange);border-color:var(--od-orange)">Resolver</button></span></div>':'')+
@@ -536,9 +538,65 @@ async function confirmarResolucion(){
 
 // ===== MODAL OC =====
 function openNuevaOC(){
-  rcnt=0;['moc-num','moc-notas'].forEach(id=>document.getElementById(id).value='');
+  rcnt=0;
+  ['moc-num','moc-notas'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('moc-fecha').value=new Date().toISOString().slice(0,10);
-  document.getElementById('moc-rngl').innerHTML='';addRenglon();openModal('modal-oc');
+  document.getElementById('moc-rngl').innerHTML='';
+  document.querySelector('#modal-oc .modal-title').textContent='Nueva orden de compra';
+  document.querySelector('#modal-oc .btn.primary').onclick=guardarOC;
+  addRenglon();openModal('modal-oc');
+}
+
+function editarOC(id){
+  const oc=state.ocs.find(o=>o.id===id);if(!oc)return;
+  rcnt=0;
+  document.getElementById('moc-num').value=oc.numero||'';
+  document.getElementById('moc-notas').value=oc.notas||'';
+  document.getElementById('moc-fecha').value=oc.fecha||'';
+  document.getElementById('moc-org').value=oc.organismo||'Ministerio MSP';
+  document.getElementById('moc-lp').value=oc.licitacion||'LP07/25';
+  document.getElementById('moc-rngl').innerHTML='';
+  (oc.renglones||[]).forEach(r=>{
+    rcnt++;const rid='r'+rcnt;
+    const opts=PROVEEDORES.map(p=>'<option value="'+p+'" '+(r.proveedor===p?'selected':'')+'>'+p+'</option>').join('');
+    const tr=document.createElement('tr');tr.id='rr-'+rid;tr.dataset.oid=r.id;
+    tr.innerHTML='<td><input style="width:38px" value="'+(r.numero||'')+'" id="rn-'+rid+'"></td><td><input value="'+(r.producto||'')+'" id="rp-'+rid+'" placeholder="Producto"></td><td><select id="rv-'+rid+'"><option value="">-</option>'+opts+'</select></td><td><input type="number" style="width:55px" value="'+(r.cantidad||'')+'" id="rc-'+rid+'"></td><td><input type="number" style="width:80px" value="'+(r.precio||'')+'" id="rpr-'+rid+'"></td><td><button class="btn sm" onclick="this.closest('tr').remove()"><i class="ti ti-x"></i></button></td>';
+    document.getElementById('moc-rngl').appendChild(tr);
+  });
+  document.querySelector('#modal-oc .modal-title').textContent='Editar OC '+oc.numero;
+  document.querySelector('#modal-oc .btn.primary').onclick=()=>guardarEdicionOC(id);
+  openModal('modal-oc');
+}
+
+async function guardarEdicionOC(id){
+  const oc=state.ocs.find(o=>o.id===id);if(!oc)return;
+  const rows=[...document.getElementById('moc-rngl').querySelectorAll('tr')];
+  oc.numero=document.getElementById('moc-num').value.trim();
+  oc.organismo=document.getElementById('moc-org').value;
+  oc.fecha=document.getElementById('moc-fecha').value;
+  oc.licitacion=document.getElementById('moc-lp').value;
+  oc.notas=document.getElementById('moc-notas').value;
+  oc.renglones=rows.map(tr=>({
+    id:tr.dataset.oid,
+    numero:tr.querySelector('[id^=rn-]')?.value||'',
+    producto:tr.querySelector('[id^=rp-]')?.value||'',
+    proveedor:tr.querySelector('[id^=rv-]')?.value||'',
+    cantidad:parseFloat(tr.querySelector('[id^=rc-]')?.value)||0,
+    precio:parseFloat(tr.querySelector('[id^=rpr-]')?.value)||0
+  })).filter(r=>r.producto);
+  await saveOC(oc);closeModal('modal-oc');renderDetalle(oc);
+  toast('OC '+oc.numero+' actualizada','success');
+}
+
+async function eliminarOC(id){
+  const oc=state.ocs.find(o=>o.id===id);if(!oc)return;
+  if(!confirm('¿Eliminar definitivamente la OC '+oc.numero+'?\nEsta acción no se puede deshacer.')){return;}
+  try{
+    const key=id.replace(/[.#$[\]]/g,'_');
+    await db.ref('ocs').child(key).remove();
+    toast('OC '+oc.numero+' eliminada','success');
+    showPage('ocs');
+  }catch(e){toast('Error al eliminar: '+e.message,'error');}
 }
 function addRenglon(d){
   rcnt++;const id='r'+rcnt;
