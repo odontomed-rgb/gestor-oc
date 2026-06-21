@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Gestor OC — Odontomed Insumos</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -183,6 +185,14 @@ tr:hover td{background:#FAFAFA}
 <div class="modal-overlay" id="modal-oc">
 <div class="modal">
   <div class="modal-header"><div class="modal-title">Nueva orden de compra</div><button class="btn sm" onclick="closeModal('modal-oc')"><i class="ti ti-x"></i></button></div>
+  <div style="margin-bottom:1rem;padding:.75rem;background:var(--od-blue-light);border-radius:var(--rs);border:1.5px dashed var(--od-blue)">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <i class="ti ti-file-type-pdf" style="color:var(--od-blue);font-size:20px"></i>
+      <span style="font-size:13px;color:var(--od-blue);font-weight:500">Cargar desde PDF de OC</span>
+      <label style="cursor:pointer" class="btn sm primary"><i class="ti ti-upload"></i> Seleccionar PDF <input type="file" accept=".pdf" id="pdf-input" style="display:none" onchange="leerPDF(this)"></label>
+      <span id="pdf-status" style="font-size:12px;color:var(--text-muted)"></span>
+    </div>
+  </div>
   <div class="form-grid">
     <div class="form-row"><label class="form-label">N° OC</label><input id="moc-num" placeholder="ej: 26018266"></div>
     <div class="form-row"><label class="form-label">Organismo</label><select id="moc-org"><option>Ministerio MSP</option><option>Hospital San Bernardo</option><option>Hospital Materno Infantil</option><option>Hospital Oñativia</option></select></div>
@@ -754,6 +764,100 @@ async function cerrarOC(id){
 
 function openModal(id){document.getElementById(id).classList.add('open');}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
+
+
+// ===== MÓDULO LECTURA PDF =====
+if (typeof pdfjsLib !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+
+async function leerPDF(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const status = document.getElementById('pdf-status');
+  status.textContent = 'Leyendo PDF...';
+  status.style.color = 'var(--od-blue)';
+
+  try {
+    // Extraer texto del PDF
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    let textoCompleto = '';
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      textoCompleto += content.items.map(item => item.str).join(' ') + '\n';
+    }
+
+    status.textContent = 'Analizando con IA...';
+
+    // Enviar a Claude API para interpretar
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1000,
+        system: `Sos un asistente que extrae datos de órdenes de compra argentinas de insumos odontológicos.
+Extraé los datos del texto y respondé SOLO con un JSON válido sin markdown, con esta estructura exacta:
+{
+  "numero": "26018251",
+  "licitacion": "LP07/24",
+  "organismo": "Ministerio MSP",
+  "fecha": "2026-06-09",
+  "renglones": [
+    {"numero": "1", "producto": "Nombre del producto", "cantidad": 50, "precio": 29078.71}
+  ]
+}
+Para organismo: si dice "Ministerio de Salud Pública" → "Ministerio MSP", "Hospital San Bernardo" → "Hospital San Bernardo", "Hospital Materno Infantil" → "Hospital Materno Infantil", "Hospital Oñativia" → "Hospital Oñativia".
+Para licitacion: buscá "7/24" → "LP07/24", "7/25" → "LP07/25".
+Los precios son unitarios (columna "$ Unit" o "Precio Unitario").`,
+        messages: [{ role: 'user', content: 'Extraé los datos de esta OC:\n\n' + textoCompleto }]
+      })
+    });
+
+    const data = await response.json();
+    if (!data.content || !data.content[0]) throw new Error('Sin respuesta de IA');
+    
+    let texto = data.content[0].text.trim();
+    texto = texto.replace(/```json|```/g, '').trim();
+    const oc = JSON.parse(texto);
+
+    // Rellenar el formulario con los datos extraídos
+    document.getElementById('moc-num').value = oc.numero || '';
+    document.getElementById('moc-fecha').value = oc.fecha || '';
+    if (oc.organismo) document.getElementById('moc-org').value = oc.organismo;
+    if (oc.licitacion) document.getElementById('moc-lp').value = oc.licitacion;
+
+    // Cargar renglones
+    document.getElementById('moc-rngl').innerHTML = '';
+    rcnt = 0;
+    (oc.renglones || []).forEach(r => {
+      rcnt++;
+      const rid = 'r' + rcnt;
+      const opts = PROVEEDORES.map(p => '<option value="'+p+'">'+p+'</option>').join('');
+      const row = document.createElement('tr');
+      row.id = 'rr-' + rid;
+      row.innerHTML = '<td><input style="width:38px" value="'+(r.numero||'')+'" id="rn-'+rid+'"></td>'
+        +'<td><input value="'+(r.producto||'').replace(/"/g,"&quot;")+'" id="rp-'+rid+'" placeholder="Producto"></td>'
+        +'<td><select id="rv-'+rid+'"><option value="">-</option>'+opts+'</select></td>'
+        +'<td><input type="number" style="width:55px" value="'+(r.cantidad||'')+'" id="rc-'+rid+'"></td>'
+        +'<td><input type="number" style="width:80px" value="'+(r.precio||'')+'" id="rpr-'+rid+'"></td>'
+        +'<td><button class="btn sm" onclick="this.parentNode.parentNode.remove()"><i class="ti ti-x"></i></button></td>';
+      document.getElementById('moc-rngl').appendChild(row);
+    });
+
+    status.textContent = '✓ ' + (oc.renglones||[]).length + ' renglones cargados — revisá y guardá';
+    status.style.color = '#16A34A';
+    input.value = '';
+
+  } catch(err) {
+    console.error(err);
+    status.textContent = 'Error: ' + err.message;
+    status.style.color = '#DC2626';
+    input.value = '';
+  }
+}
 
 // ===== INIT =====
 initFirebase();
