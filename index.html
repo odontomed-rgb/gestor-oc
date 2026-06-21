@@ -148,7 +148,7 @@ tr:hover td{background:#FAFAFA}
 <div class="page active" id="page-dashboard">
   <div class="cards" id="dash-cards"></div>
   <div class="sec-title">OCs activas</div>
-  <div class="table-wrap"><table><thead><tr><th>N° OC</th><th>Organismo</th><th>LP</th><th>Monto OC</th><th>Entregado</th><th>Facturado</th><th>Estado</th><th></th></tr></thead><tbody id="dash-tbody"></tbody></table></div>
+  <div class="table-wrap"><table><thead><tr><th>N° OC</th><th>Organismo</th><th>LP</th><th>Fecha OC</th><th>Monto OC</th><th>Entregado</th><th>Facturado</th><th>Estado</th><th></th></tr></thead><tbody id="dash-tbody"></tbody></table></div>
 </div>
 
 <div class="page" id="page-ocs">
@@ -323,6 +323,7 @@ function toast(msg, type='') {
 // ===== HELPERS =====
 function fmt(n){return Number(n||0).toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0});}
 function fN(n){return Number(n||0).toLocaleString('es-AR');}
+function fmtFecha(f){if(!f)return '-';const p=f.split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:f;}
 function pct(a,b){return b>0?Math.round(a/b*100):0;}
 function calcOC(oc){
   const R=oc.renglones||[],E=oc.entregas||[],F=oc.facturas||[];
@@ -373,7 +374,7 @@ function renderAll(){updateBadge();renderDash();}
 function renderDash(){
   updateBadge();
   const org=getOrg();
-  const ocs=state.ocs.filter(o=>o.estado!=='cerrada'&&(!org||o.organismo===org));
+  const ocs=state.ocs.filter(o=>o.estado!=='cerrada'&&(!org||o.organismo===org)).sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
   let tM=0,tE=0,tF=0;
   ocs.forEach(o=>{const c=calcOC(o);tM+=c.montoOC;tE+=c.totalEnt;tF+=c.totalFac;});
   const pend=countPending();
@@ -390,6 +391,7 @@ function renderDash(){
     '<td><strong style="color:var(--od-blue)">'+o.numero+'</strong></td>'+
     '<td>'+orgChip(o.organismo)+'</td>'+
     '<td style="font-size:11px;color:var(--text-muted)">'+o.licitacion+'</td>'+
+    '<td style="font-size:11px;color:var(--text-muted)">'+fmtFecha(o.fecha)+'</td>'+
     '<td>'+fmt(c.montoOC)+'</td>'+
     '<td><div style="display:flex;align-items:center;gap:6px"><div class="pm" style="width:50px"><div class="pf" style="width:'+pE+'%;background:'+(pE>=100?'#16A34A':pE>=50?'var(--od-orange)':'#EF4444')+'"></div></div><span style="font-size:11px">'+pE+'%</span></div></td>'+
     '<td style="font-size:12px">'+fmt(c.totalFac)+'</td>'+
@@ -403,7 +405,7 @@ function renderOCs(){
   const lp=document.getElementById('fo-lp')?.value||'';
   const est=document.getElementById('fo-est')?.value||'';
   const bus=(document.getElementById('fo-bus')?.value||'').toLowerCase();
-  const ocs=state.ocs.filter(o=>(!org||o.organismo===org)&&(!lp||o.licitacion===lp)&&(!est||o.estado===est||(!o.estado&&est==='activa'))&&(!bus||o.numero.includes(bus)));
+  const ocs=state.ocs.filter(o=>(!org||o.organismo===org)&&(!lp||o.licitacion===lp)&&(!est||o.estado===est||(!o.estado&&est==='activa'))&&(!bus||o.numero.includes(bus))).sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
   const tb=document.getElementById('ocs-tbody');
   if(!ocs.length){tb.innerHTML='<tr><td colspan="9"><div class="empty"><i class="ti ti-file-invoice"></i>Sin OCs</div></td></tr>';return;}
   tb.innerHTML=ocs.map(o=>{const c=calcOC(o);return'<tr>'+
