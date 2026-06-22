@@ -5,9 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Gestor OC — Odontomed Insumos</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -128,6 +126,7 @@ tr:hover td{background:#FAFAFA}
   <button class="nav-item" onclick="showPage('pendientes')" id="nav-pendientes"><i class="ti ti-clock"></i> Pend. entrega</button>
   <button class="nav-item" onclick="showPage('sin-facturar')" id="nav-sin-facturar"><i class="ti ti-receipt-off"></i> Sin facturar</button>
   <button class="nav-item" onclick="showPage('proveedores')" id="nav-proveedores"><i class="ti ti-truck"></i> Por proveedor</button>
+  <button class="nav-item" onclick="showPage('resumen')" id="nav-resumen"><i class="ti ti-table"></i> Resumen artículos</button>
 </nav>
 
 <div class="main">
@@ -148,7 +147,7 @@ tr:hover td{background:#FAFAFA}
 <div class="page active" id="page-dashboard">
   <div class="cards" id="dash-cards"></div>
   <div class="sec-title">OCs activas</div>
-  <div class="table-wrap"><table><thead><tr><th>N° OC</th><th>Organismo</th><th>LP</th><th>Fecha OC</th><th>Monto OC</th><th>Entregado</th><th>Facturado</th><th>Estado</th><th></th></tr></thead><tbody id="dash-tbody"></tbody></table></div>
+  <div class="table-wrap"><table><thead><tr><th>N° OC</th><th>Organismo</th><th>LP</th><th>Monto OC</th><th>Entregado</th><th>Facturado</th><th>Estado</th><th></th></tr></thead><tbody id="dash-tbody"></tbody></table></div>
 </div>
 
 <div class="page" id="page-ocs">
@@ -179,20 +178,14 @@ tr:hover td{background:#FAFAFA}
 
 <div class="page" id="page-proveedores"><div id="prov-content"></div></div>
 
+<div class="page" id="page-resumen"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem"><div></div><button class="btn orange" onclick="exportarResumenExcel()"><i class="ti ti-download"></i> Descargar Excel</button></div><div id="resumen-content"></div></div>
+
 </div></div>
 
 <!-- MODALES -->
 <div class="modal-overlay" id="modal-oc">
 <div class="modal">
   <div class="modal-header"><div class="modal-title">Nueva orden de compra</div><button class="btn sm" onclick="closeModal('modal-oc')"><i class="ti ti-x"></i></button></div>
-  <div style="margin-bottom:1rem;padding:.75rem;background:var(--od-blue-light);border-radius:var(--rs);border:1.5px dashed var(--od-blue)">
-    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-      <i class="ti ti-file-type-pdf" style="color:var(--od-blue);font-size:20px"></i>
-      <span style="font-size:13px;color:var(--od-blue);font-weight:500">Cargar desde PDF de OC</span>
-      <label style="cursor:pointer" class="btn sm primary"><i class="ti ti-upload"></i> Seleccionar PDF <input type="file" accept=".pdf" id="pdf-input" style="display:none" onchange="leerPDF(this)"></label>
-      <span id="pdf-status" style="font-size:12px;color:var(--text-muted)"></span>
-    </div>
-  </div>
   <div class="form-grid">
     <div class="form-row"><label class="form-label">N° OC</label><input id="moc-num" placeholder="ej: 26018266"></div>
     <div class="form-row"><label class="form-label">Organismo</label><select id="moc-org"><option>Ministerio MSP</option><option>Hospital San Bernardo</option><option>Hospital Materno Infantil</option><option>Hospital Oñativia</option></select></div>
@@ -260,7 +253,7 @@ const ref = db.ref('ocs');
 
 // ===== STATE =====
 const PROVEEDORES = ['Medrano','Megadental','Poquet','Belkys','Microdont','Easydent','Farmadental','Densell','Meta','Maillefer','KMD','Nipro','IBC','Mecadent','Muntal','Carestream','Romek','Scivita','Tribiselada'];
-const PAGE_TITLES = {dashboard:'Resumen general',ocs:'Órdenes de compra',detalle:'Detalle de OC',resolver:'Por resolver',pendientes:'Pendientes de entrega','sin-facturar':'Sin facturar',proveedores:'Por proveedor'};
+const PAGE_TITLES = {dashboard:'Resumen general',ocs:'Órdenes de compra',detalle:'Detalle de OC',resolver:'Por resolver',pendientes:'Pendientes de entrega','sin-facturar':'Sin facturar',proveedores:'Por proveedor',resumen:'Resumen por artículo'};
 let state = {ocs:[], currentOC:null, currentResolver:null, currentPage:'dashboard', loaded:false};
 let rcnt = 0;
 
@@ -323,7 +316,6 @@ function toast(msg, type='') {
 // ===== HELPERS =====
 function fmt(n){return Number(n||0).toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0});}
 function fN(n){return Number(n||0).toLocaleString('es-AR');}
-function fmtFecha(f){if(!f)return '-';const p=f.split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:f;}
 function pct(a,b){return b>0?Math.round(a/b*100):0;}
 function calcOC(oc){
   const R=oc.renglones||[],E=oc.entregas||[],F=oc.facturas||[];
@@ -365,6 +357,7 @@ function showPage(id){
   if(id==='pendientes')renderPendientes();
   if(id==='sin-facturar')renderSinFacturar();
   if(id==='proveedores')renderProveedores();
+  if(id==='resumen')renderResumen();
   if(id==='resolver')renderResolver();
 }
 function renderCurrentPage(){showPage(state.currentPage);}
@@ -374,7 +367,7 @@ function renderAll(){updateBadge();renderDash();}
 function renderDash(){
   updateBadge();
   const org=getOrg();
-  const ocs=state.ocs.filter(o=>o.estado!=='cerrada'&&(!org||o.organismo===org)).sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
+  const ocs=state.ocs.filter(o=>o.estado!=='cerrada'&&(!org||o.organismo===org));
   let tM=0,tE=0,tF=0;
   ocs.forEach(o=>{const c=calcOC(o);tM+=c.montoOC;tE+=c.totalEnt;tF+=c.totalFac;});
   const pend=countPending();
@@ -391,7 +384,6 @@ function renderDash(){
     '<td><strong style="color:var(--od-blue)">'+o.numero+'</strong></td>'+
     '<td>'+orgChip(o.organismo)+'</td>'+
     '<td style="font-size:11px;color:var(--text-muted)">'+o.licitacion+'</td>'+
-    '<td style="font-size:11px;color:var(--text-muted)">'+fmtFecha(o.fecha)+'</td>'+
     '<td>'+fmt(c.montoOC)+'</td>'+
     '<td><div style="display:flex;align-items:center;gap:6px"><div class="pm" style="width:50px"><div class="pf" style="width:'+pE+'%;background:'+(pE>=100?'#16A34A':pE>=50?'var(--od-orange)':'#EF4444')+'"></div></div><span style="font-size:11px">'+pE+'%</span></div></td>'+
     '<td style="font-size:12px">'+fmt(c.totalFac)+'</td>'+
@@ -405,7 +397,7 @@ function renderOCs(){
   const lp=document.getElementById('fo-lp')?.value||'';
   const est=document.getElementById('fo-est')?.value||'';
   const bus=(document.getElementById('fo-bus')?.value||'').toLowerCase();
-  const ocs=state.ocs.filter(o=>(!org||o.organismo===org)&&(!lp||o.licitacion===lp)&&(!est||o.estado===est||(!o.estado&&est==='activa'))&&(!bus||o.numero.includes(bus))).sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
+  const ocs=state.ocs.filter(o=>(!org||o.organismo===org)&&(!lp||o.licitacion===lp)&&(!est||o.estado===est||(!o.estado&&est==='activa'))&&(!bus||o.numero.includes(bus)));
   const tb=document.getElementById('ocs-tbody');
   if(!ocs.length){tb.innerHTML='<tr><td colspan="9"><div class="empty"><i class="ti ti-file-invoice"></i>Sin OCs</div></td></tr>';return;}
   tb.innerHTML=ocs.map(o=>{const c=calcOC(o);return'<tr>'+
@@ -428,7 +420,7 @@ function renderDetalle(oc){
   const eH=(oc.entregas||[]).length?(oc.entregas||[]).map(e=>{
     const fac=(oc.facturas||[]).some(f=>(f.remitos||[]).includes(e.remito));
     const items=(e.items||[]).filter(i=>i.cantidad>0).map(i=>{const r=(oc.renglones||[]).find(x=>x.id===i.renglon);return r?r.producto+': '+fN(i.cantidad)+' u.':''}).filter(Boolean).join(' · ');
-    return'<div class="ent-card '+(fac?'fac':'')+'"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><div><strong style="color:var(--od-blue)">Remito '+e.remito+'</strong> <span style="font-size:12px;color:var(--text-muted)">'+(e.fecha||'')+'</span></div><div style="display:flex;align-items:center;gap:6px">'+(fac?'<span class="badge green">Facturado</span>':'<span class="badge orange">Sin facturar</span>')+'<button class="btn sm" onclick="descargarRemitoExistente(\''+oc.id+'\',\''+e.id+'\')" title="Descargar PDF del remito" style="padding:2px 7px;font-size:11px"><i class="ti ti-download"></i></button></div></div><div style="font-size:12px;color:var(--text-muted)">'+(items||'Sin ítems')+'</div></div>';}).join(''):'<div class="empty"><i class="ti ti-truck"></i>Sin entregas</div>';
+    return'<div class="ent-card '+(fac?'fac':'')+'"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><div><strong style="color:var(--od-blue)">Remito '+e.remito+'</strong> <span style="font-size:12px;color:var(--text-muted)">'+(e.fecha||'')+'</span></div>'+(fac?'<span class="badge green">Facturado</span>':'<span class="badge orange">Sin facturar</span>')+'</div><div style="font-size:12px;color:var(--text-muted)">'+(items||'Sin ítems')+'</div></div>';}).join(''):'<div class="empty"><i class="ti ti-truck"></i>Sin entregas</div>';
   const fH=(oc.facturas||[]).length?(oc.facturas||[]).map(f=>'<div class="fac-card"><div style="display:flex;justify-content:space-between"><div><strong style="color:var(--od-blue)">Fac. '+f.numero+'</strong> <span style="font-size:12px;color:var(--text-muted)">'+(f.fecha||'')+'</span></div><div style="font-weight:600">'+fmt(f.monto)+'</div></div><div style="font-size:12px;color:var(--text-muted);margin-top:2px">Remitos: '+((f.remitos||[]).join(', ')||'-')+'</div></div>').join(''):'<div class="empty"><i class="ti ti-file-invoice"></i>Sin facturas</div>';
   document.getElementById('detalle-content').innerHTML=
     '<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem">'+
@@ -503,28 +495,14 @@ function renderProveedores(){
   const el=document.getElementById('prov-content');
   const pm={};
   state.ocs.filter(o=>o.estado!=='cerrada'&&(!org||o.organismo===org)).forEach(oc=>{
-    (oc.renglones||[]).forEach(r=>{const e=getEnt(oc,r.id),f=Math.max(0,(r.cantidad||0)-e);if(f<=0)return;const p=r.proveedor||'Sin proveedor';if(!pm[p])pm[p]=[];pm[p].push({oc,r,f,val:f*(r.precio||0)});});
+    (oc.renglones||[]).forEach(r=>{const e=getEnt(oc,r.id),f=Math.max(0,(r.cantidad||0)-e);if(f<=0)return;const p=r.proveedor||'Sin proveedor';if(!pm[p])pm[p]=[];pm[p].push({oc,r,f});});
   });
   if(!Object.keys(pm).length){el.innerHTML='<div class="empty"><i class="ti ti-check"></i>Sin pendientes por proveedor</div>';return;}
-  el.innerHTML=Object.entries(pm).sort((a,b)=>a[0].localeCompare(b[0])).map(([p,items])=>{
-    const totalUnid=items.reduce((s,x)=>s+x.f,0);
-    const totalVal=items.reduce((s,x)=>s+x.val,0);
-    return '<div style="margin-bottom:1.5rem">'+
-    '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">'+
-    '<span class="ptag" style="font-size:13px;padding:3px 12px;font-weight:600">'+p+'</span>'+
-    '<span style="font-size:12px;color:var(--text-muted)">'+items.length+' ítem'+(items.length!==1?'s':'')+' pendiente'+(items.length!==1?'s':'')+'</span>'+
-    '<span style="font-size:12px;background:var(--od-orange-light);color:#7A3800;padding:2px 10px;border-radius:20px;font-weight:600;margin-left:4px">Total: '+fmt(totalVal)+'</span>'+
-    '</div>'+
-    '<div class="table-wrap"><table><thead><tr><th>OC</th><th>Organismo</th><th>R°</th><th>Producto</th><th style="text-align:right">Falta (u)</th><th style="text-align:right">Precio unit.</th><th style="text-align:right">Subtotal</th></tr></thead><tbody>'+
-    items.map(x=>'<tr><td><button class="btn sm" onclick="verDetalle(\''+x.oc.id+'\')" style="color:var(--od-blue);border-color:var(--od-blue);padding:2px 8px">'+x.oc.numero+'</button></td><td>'+orgChip(x.oc.organismo)+'</td><td style="font-size:11px;color:var(--text-muted)">'+x.r.numero+'</td><td>'+x.r.producto+'</td>'+
-    '<td style="font-weight:600;color:var(--od-orange);text-align:right">'+fN(x.f)+'</td>'+
-    '<td style="text-align:right;color:var(--text-muted);font-size:12px">'+fmt(x.r.precio||0)+'</td>'+
-    '<td style="font-weight:600;text-align:right">'+fmt(x.val)+'</td></tr>').join('')+
-    '<tr style="background:var(--od-blue-light);font-weight:700"><td colspan="4" style="text-align:right;color:var(--od-blue);font-size:12px">TOTAL '+p.toUpperCase()+'</td>'+
-    '<td style="text-align:right;color:var(--od-orange)">'+fN(totalUnid)+'</td><td></td>'+
-    '<td style="text-align:right;color:var(--od-blue)">'+fmt(totalVal)+'</td></tr>'+
-    '</tbody></table></div></div>';
-  }).join('');
+  el.innerHTML=Object.entries(pm).sort((a,b)=>a[0].localeCompare(b[0])).map(([p,items])=>
+    '<div style="margin-bottom:1.5rem"><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span class="ptag" style="font-size:13px;padding:3px 12px;font-weight:600">'+p+'</span><span style="font-size:12px;color:var(--text-muted)">'+items.length+' ítem'+(items.length!==1?'s':'')+' pendiente'+(items.length!==1?'s':'')+'</span></div>'+
+    '<div class="table-wrap"><table><thead><tr><th>OC</th><th>Organismo</th><th>R°</th><th>Producto</th><th>Falta</th></tr></thead><tbody>'+
+    items.map(x=>'<tr><td><button class="btn sm" onclick="verDetalle(\''+x.oc.id+'\')" style="color:var(--od-blue);border-color:var(--od-blue);padding:2px 8px">'+x.oc.numero+'</button></td><td>'+orgChip(x.oc.organismo)+'</td><td style="font-size:11px;color:var(--text-muted)">'+x.r.numero+'</td><td>'+x.r.producto+'</td><td style="font-weight:600;color:var(--od-orange)">'+fN(x.f)+'</td></tr>').join('')+
+    '</tbody></table></div></div>').join('');
 }
 
 // ===== RESOLVER =====
@@ -660,86 +638,11 @@ function openEntrega(ocId){
 async function guardarEntrega(){
   const oc=state.ocs.find(o=>o.id===state.currentOC);if(!oc)return;
   const remito=document.getElementById('ment-remito').value.trim();if(!remito){alert('Ingresá el N° de remito');return;}
-  const fecha=document.getElementById('ment-fecha').value;
   const items=[];(oc.renglones||[]).forEach(r=>{const q=parseFloat(document.getElementById('eq-'+r.id)?.value)||0;if(q>0){const lot=(document.getElementById('lot-'+r.id)?.value||'').trim();const ven=(document.getElementById('ven-'+r.id)?.value||'').trim();items.push({renglon:r.id,cantidad:q,lote:lot,vencimiento:ven});}});
   if(!items.length){alert('Ingresá al menos una cantidad');return;}
   if(!oc.entregas)oc.entregas=[];
-  const nuevaEntrega={id:'e'+Date.now(),remito,fecha,items};
-  oc.entregas.push(nuevaEntrega);
+  oc.entregas.push({id:'e'+Date.now(),remito,fecha:document.getElementById('ment-fecha').value,items});
   await saveOC(oc);closeModal('modal-entrega');renderDetalle(oc);
-  // Ofrecer descarga del PDF
-  descargarRemitoEntrega(oc,nuevaEntrega);
-}
-
-function descargarRemitoEntrega(oc,entrega){
-  const items=(entrega.items||[]).filter(i=>i.cantidad>0).map(i=>{
-    const r=(oc.renglones||[]).find(x=>x.id===i.renglon);
-    return {renglon:r?.numero||'?', producto:r?.producto||'(producto)', cantidad:i.cantidad, precio:r?.precio||0, subtotal:(i.cantidad||0)*(r?.precio||0), lote:i.lote||'-', vencimiento:i.vencimiento||'-'};
-  });
-  const totalVal=items.reduce((s,i)=>s+i.subtotal,0);
-  const fechaFormato=(entrega.fecha||'').split('-').reverse().join('/');
-  const html=`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
-<title>Remito ${entrega.remito}</title>
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:Arial,sans-serif;font-size:12px;color:#1a1a2e;padding:20px}
-.header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:12px;border-bottom:2px solid #0A2FA8}
-.marca{font-size:18px;font-weight:700;color:#0A2FA8}
-.marca-sub{font-size:11px;color:#6B7280;margin-top:2px}
-.remito-box{text-align:right}
-.remito-num{font-size:16px;font-weight:700;color:#E8710A}
-.remito-fecha{font-size:11px;color:#6B7280;margin-top:2px}
-.oc-box{background:#EEF3FF;border-radius:6px;padding:10px 14px;margin-bottom:16px;display:flex;gap:24px}
-.oc-item .l{font-size:10px;color:#6B7280;text-transform:uppercase}
-.oc-item .v{font-size:13px;font-weight:600;color:#0A2FA8}
-table{width:100%;border-collapse:collapse;margin-bottom:14px}
-th{background:#0A2FA8;color:white;padding:7px 8px;text-align:left;font-size:11px}
-th:last-child,th:nth-child(3),th:nth-child(4),th:nth-child(5){text-align:right}
-td{padding:6px 8px;border-bottom:1px solid #E5E7EB;font-size:11px}
-td:last-child,td:nth-child(3),td:nth-child(4),td:nth-child(5){text-align:right}
-tr:nth-child(even){background:#F9FAFB}
-.total-row{font-weight:700;background:#EEF3FF!important}
-.total-row td{color:#0A2FA8;font-size:12px}
-.footer{margin-top:30px;border-top:1px solid #E5E7EB;padding-top:14px;display:flex;justify-content:space-between;font-size:10px;color:#9CA3AF}
-.firma-box{text-align:center;border:1px solid #E5E7EB;border-radius:6px;padding:8px 20px;margin-top:16px;display:inline-block}
-.firma-box .linea{height:40px;border-bottom:1px solid #374151;margin-bottom:4px}
-.firma-box .label{font-size:10px;color:#6B7280}
-</style></head><body>
-<div class="header">
-  <div><div class="marca">Odontomed Insumos</div><div class="marca-sub">Delpat S.R.L. — Balcarce 224, Salta Capital</div></div>
-  <div class="remito-box"><div class="remito-num">REMITO ${entrega.remito}</div><div class="remito-fecha">Fecha: ${fechaFormato}</div></div>
-</div>
-<div class="oc-box">
-  <div class="oc-item"><div class="l">Orden de Compra</div><div class="v">OC ${oc.numero}</div></div>
-  <div class="oc-item"><div class="l">Organismo</div><div class="v">${oc.organismo||'-'}</div></div>
-  <div class="oc-item"><div class="l">Licitación</div><div class="v">${oc.licitacion||'-'}</div></div>
-</div>
-<table>
-  <thead><tr><th>R°</th><th>Producto</th><th>Cant.</th><th>Precio unit.</th><th>Subtotal</th><th>Lote</th><th>Vencimiento</th></tr></thead>
-  <tbody>
-  ${items.map(i=>`<tr><td>${i.renglon}</td><td>${i.producto}</td><td>${i.cantidad}</td><td>${Number(i.precio).toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:2})}</td><td>${Number(i.subtotal).toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:2})}</td><td>${i.lote}</td><td>${i.vencimiento}</td></tr>`).join('')}
-  <tr class="total-row"><td colspan="4">TOTAL</td><td>${Number(totalVal).toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:2})}</td><td colspan="2"></td></tr>
-  </tbody>
-</table>
-<div style="margin-top:24px;display:flex;justify-content:space-between;align-items:flex-end">
-  <div class="firma-box"><div class="linea"></div><div class="label">Firma y sello de recepción</div></div>
-  <div style="text-align:right;font-size:10px;color:#9CA3AF">Impreso: ${new Date().toLocaleString('es-AR')}</div>
-</div>
-</body></html>`;
-  const blob=new Blob([html],{type:'text/html;charset=utf-8'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');a.href=url;a.download='Remito_'+entrega.remito.replace(/[^a-zA-Z0-9-]/g,'_')+'.html';
-  document.body.appendChild(a);a.click();document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  toast('PDF del remito descargado ✓','success');
-}
-
-// Botón para descargar remito existente desde el detalle
-function descargarRemitoExistente(ocId,entregaId){
-  const oc=state.ocs.find(o=>o.id===ocId);
-  const entrega=(oc?.entregas||[]).find(e=>e.id===entregaId);
-  if(!oc||!entrega){alert('Remito no encontrado');return;}
-  descargarRemitoEntrega(oc,entrega);
 }
 
 // ===== MODAL FACTURA =====
@@ -768,97 +671,120 @@ function openModal(id){document.getElementById(id).classList.add('open');}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
 
 
-// ===== MÓDULO LECTURA PDF =====
-if (typeof pdfjsLib !== 'undefined') {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-}
+// ===== RESUMEN POR ARTÍCULO =====
+function getResumenData(org) {
+  // Collect all renglones across all active OCs, pivot by product
+  const map = {}; // key: cups+num+desc -> {desc, proveedor, ocs:{}, total_pedido, total_entregado}
+  const ocsList = state.ocs.filter(o => o.estado !== 'cerrada' && (!org || o.organismo === org));
+  const ocIds = ocsList.map(o => o.numero);
 
-async function leerPDF(input) {
-  const file = input.files[0];
-  if (!file) return;
-  const status = document.getElementById('pdf-status');
-  status.textContent = 'Leyendo PDF...';
-  status.style.color = 'var(--od-blue)';
-
-  try {
-    // Extraer texto del PDF
-    const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    let textoCompleto = '';
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const content = await page.getTextContent();
-      textoCompleto += content.items.map(item => item.str).join(' ') + '\n';
-    }
-
-    status.textContent = 'Analizando con IA...';
-
-    // Enviar a Claude API para interpretar
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 1000,
-        system: `Sos un asistente que extrae datos de órdenes de compra argentinas de insumos odontológicos.
-Extraé los datos del texto y respondé SOLO con un JSON válido sin markdown, con esta estructura exacta:
-{
-  "numero": "26018251",
-  "licitacion": "LP07/24",
-  "organismo": "Ministerio MSP",
-  "fecha": "2026-06-09",
-  "renglones": [
-    {"numero": "1", "producto": "Nombre del producto", "cantidad": 50, "precio": 29078.71}
-  ]
-}
-Para organismo: si dice "Ministerio de Salud Pública" → "Ministerio MSP", "Hospital San Bernardo" → "Hospital San Bernardo", "Hospital Materno Infantil" → "Hospital Materno Infantil", "Hospital Oñativia" → "Hospital Oñativia".
-Para licitacion: buscá "7/24" → "LP07/24", "7/25" → "LP07/25".
-Los precios son unitarios (columna "$ Unit" o "Precio Unitario").`,
-        messages: [{ role: 'user', content: 'Extraé los datos de esta OC:\n\n' + textoCompleto }]
-      })
-    });
-
-    const data = await response.json();
-    if (!data.content || !data.content[0]) throw new Error('Sin respuesta de IA');
-    
-    let texto = data.content[0].text.trim();
-    texto = texto.replace(/```json|```/g, '').trim();
-    const oc = JSON.parse(texto);
-
-    // Rellenar el formulario con los datos extraídos
-    document.getElementById('moc-num').value = oc.numero || '';
-    document.getElementById('moc-fecha').value = oc.fecha || '';
-    if (oc.organismo) document.getElementById('moc-org').value = oc.organismo;
-    if (oc.licitacion) document.getElementById('moc-lp').value = oc.licitacion;
-
-    // Cargar renglones
-    document.getElementById('moc-rngl').innerHTML = '';
-    rcnt = 0;
+  ocsList.forEach(oc => {
     (oc.renglones || []).forEach(r => {
-      rcnt++;
-      const rid = 'r' + rcnt;
-      const opts = PROVEEDORES.map(p => '<option value="'+p+'">'+p+'</option>').join('');
-      const row = document.createElement('tr');
-      row.id = 'rr-' + rid;
-      row.innerHTML = '<td><input style="width:38px" value="'+(r.numero||'')+'" id="rn-'+rid+'"></td>'
-        +'<td><input value="'+(r.producto||'').replace(/"/g,"&quot;")+'" id="rp-'+rid+'" placeholder="Producto"></td>'
-        +'<td><select id="rv-'+rid+'"><option value="">-</option>'+opts+'</select></td>'
-        +'<td><input type="number" style="width:55px" value="'+(r.cantidad||'')+'" id="rc-'+rid+'"></td>'
-        +'<td><input type="number" style="width:80px" value="'+(r.precio||'')+'" id="rpr-'+rid+'"></td>'
-        +'<td><button class="btn sm" onclick="this.parentNode.parentNode.remove()"><i class="ti ti-x"></i></button></td>';
-      document.getElementById('moc-rngl').appendChild(row);
+      const key = r.cups ? r.cups + '_' + r.numero : r.numero + '_' + r.producto.slice(0,20);
+      if (!map[key]) {
+        map[key] = {
+          numero: r.numero,
+          cups: r.cups || '',
+          producto: r.producto,
+          proveedor: r.proveedor,
+          precio: r.precio,
+          ocs: {},
+          total_pedido: 0,
+          total_entregado: 0
+        };
+      }
+      const entregado = getEnt(oc, r.id);
+      map[key].ocs[oc.numero] = { pedido: r.cantidad, entregado: entregado, falta: Math.max(0, r.cantidad - entregado) };
+      map[key].total_pedido += r.cantidad;
+      map[key].total_entregado += entregado;
     });
+  });
 
-    status.textContent = '✓ ' + (oc.renglones||[]).length + ' renglones cargados — revisá y guardá';
-    status.style.color = '#16A34A';
-    input.value = '';
+  return { items: Object.values(map).sort((a,b) => Number(a.numero) - Number(b.numero)), ocIds };
+}
 
-  } catch(err) {
-    console.error(err);
-    status.textContent = 'Error: ' + err.message;
-    status.style.color = '#DC2626';
-    input.value = '';
-  }
+function renderResumen() {
+  const org = getOrg();
+  const el = document.getElementById('resumen-content');
+  const { items, ocIds } = getResumenData(org);
+
+  if (!items.length) { el.innerHTML = '<div class="empty"><i class="ti ti-table"></i>Sin datos</div>'; return; }
+
+  // Build table
+  let html = '<div style="overflow-x:auto"><div class="table-wrap"><table style="font-size:12px"><thead><tr>';
+  html += '<th style="min-width:40px">R°</th><th style="min-width:280px">Producto</th><th>Proveedor</th>';
+  ocIds.forEach(id => {
+    html += '<th style="text-align:center;min-width:100px" colspan="2">' + id + '</th>';
+  });
+  html += '<th style="text-align:center;min-width:80px">Total<br>Pedido</th>';
+  html += '<th style="text-align:center;min-width:80px">Total<br>Entregado</th>';
+  html += '<th style="text-align:center;min-width:80px">Total<br>Falta</th>';
+  html += '</tr><tr><th></th><th></th><th></th>';
+  ocIds.forEach(() => {
+    html += '<th style="text-align:center;font-size:10px;color:var(--od-blue)">Ped.</th><th style="text-align:center;font-size:10px;color:var(--od-orange)">Falta</th>';
+  });
+  html += '<th></th><th></th><th></th></tr></thead><tbody>';
+
+  items.forEach(item => {
+    const faltaTotal = Math.max(0, item.total_pedido - item.total_entregado);
+    const rowStyle = faltaTotal > 0 ? '' : 'style="opacity:0.5"';
+    html += '<tr ' + rowStyle + '>';
+    html += '<td style="font-size:11px;color:var(--text-muted)">' + item.numero + '</td>';
+    html += '<td>' + item.producto + '</td>';
+    html += '<td><span class="ptag">' + (item.proveedor || '-') + '</span></td>';
+    ocIds.forEach(ocNum => {
+      const d = item.ocs[ocNum];
+      if (d) {
+        html += '<td style="text-align:center">' + fN(d.pedido) + '</td>';
+        html += '<td style="text-align:center;color:' + (d.falta > 0 ? 'var(--od-orange)' : '#16A34A') + ';font-weight:' + (d.falta > 0 ? 600 : 400) + '">' + (d.falta > 0 ? fN(d.falta) : '✓') + '</td>';
+      } else {
+        html += '<td style="text-align:center;color:var(--border)">-</td><td style="text-align:center;color:var(--border)">-</td>';
+      }
+    });
+    html += '<td style="text-align:center;font-weight:500">' + fN(item.total_pedido) + '</td>';
+    html += '<td style="text-align:center">' + fN(item.total_entregado) + '</td>';
+    html += '<td style="text-align:center;font-weight:600;color:' + (faltaTotal > 0 ? 'var(--od-orange)' : '#16A34A') + '">' + (faltaTotal > 0 ? fN(faltaTotal) : '✓') + '</td>';
+    html += '</tr>';
+  });
+
+  html += '</tbody></table></div></div>';
+  el.innerHTML = html;
+}
+
+function exportarResumenExcel() {
+  const org = getOrg();
+  const { items, ocIds } = getResumenData(org);
+  if (!items.length) { alert('Sin datos para exportar'); return; }
+
+  // Build CSV (Excel-compatible)
+  const BOM = '﻿';
+  let csv = BOM;
+
+  // Header row 1
+  const h1 = ['R°', 'Producto', 'Proveedor'];
+  ocIds.forEach(id => { h1.push(id + ' - Pedido'); h1.push(id + ' - Falta'); });
+  h1.push('Total Pedido', 'Total Entregado', 'Total Falta');
+  csv += h1.map(v => '"' + v + '"').join(';') + '\r\n';
+
+  // Data rows
+  items.forEach(item => {
+    const faltaTotal = Math.max(0, item.total_pedido - item.total_entregado);
+    const row = [item.numero, item.producto, item.proveedor || ''];
+    ocIds.forEach(ocNum => {
+      const d = item.ocs[ocNum];
+      row.push(d ? d.pedido : '');
+      row.push(d ? d.falta : '');
+    });
+    row.push(item.total_pedido, item.total_entregado, faltaTotal);
+    csv += row.map(v => typeof v === 'string' ? '"' + v.replace(/"/g, '""') + '"' : v).join(';') + '\r\n';
+  });
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'resumen-articulos-' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+  toast('Excel descargado', 'success');
 }
 
 // ===== INIT =====
