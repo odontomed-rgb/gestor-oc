@@ -478,15 +478,15 @@ function renderPendientes(){
     if(va<vb)return -1*_pendSort.dir;if(va>vb)return 1*_pendSort.dir;return 0;
   });
   if(thead)thead.innerHTML=
-    '<tr>'+
-    '<th style="cursor:pointer;user-select:none" onclick="sortPend('oc')">OC'+pendArrow('oc')+'</th>'+
-    '<th>Organismo</th>'+
-    '<th style="cursor:pointer;user-select:none" onclick="sortPend('renglon')">R°'+pendArrow('renglon')+'</th>'+
-    '<th style="cursor:pointer;user-select:none" onclick="sortPend('producto')">Producto'+pendArrow('producto')+'</th>'+
-    '<th style="cursor:pointer;user-select:none" onclick="sortPend('proveedor')">Proveedor'+pendArrow('proveedor')+'</th>'+
-    '<th>Pedido</th><th>Entregado</th>'+
-    '<th style="cursor:pointer;user-select:none" onclick="sortPend('falta')">Falta'+pendArrow('falta')+'</th>'+
-    '</tr>';
+    "<tr>"+
+    "<th style='cursor:pointer' onclick='sortPend(\"oc\")'>OC"+pendArrow("oc")+"</th>"+
+    "<th>Organismo</th>"+
+    "<th style='cursor:pointer' onclick='sortPend(\"renglon\")'>R°"+pendArrow("renglon")+"</th>"+
+    "<th style='cursor:pointer' onclick='sortPend(\"producto\")'>Producto"+pendArrow("producto")+"</th>"+
+    "<th style='cursor:pointer' onclick='sortPend(\"proveedor\")'>Proveedor"+pendArrow("proveedor")+"</th>"+
+    "<th>Pedido</th><th>Entregado</th>"+
+    "<th style='cursor:pointer' onclick='sortPend(\"falta\")'>Falta"+pendArrow("falta")+"</th>"+
+    "</tr>";
   if(!rows.length){tb.innerHTML='<tr><td colspan="8"><div class="empty"><i class="ti ti-check"></i>Sin pendientes</div></td></tr>';return;}
   tb.innerHTML=rows.map(x=>'<tr>'+
     '<td><button class="btn sm" onclick="verDetalle(''+x.oc.id+'')" style="color:var(--od-blue);border-color:var(--od-blue);padding:2px 8px">'+x.oc.numero+'</button></td>'+
