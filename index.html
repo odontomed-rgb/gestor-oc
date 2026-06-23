@@ -477,16 +477,13 @@ function renderPendientes(){
     else{va=a.oc.numero;vb=b.oc.numero;}
     if(va<vb)return -1*_pendSort.dir;if(va>vb)return 1*_pendSort.dir;return 0;
   });
-  if(thead)thead.innerHTML=
-    "<tr>"+
-    "<th style='cursor:pointer' onclick='sortPend(\"oc\")'>OC"+pendArrow("oc")+"</th>"+
-    "<th>Organismo</th>"+
-    "<th style='cursor:pointer' onclick='sortPend(\"renglon\")'>R°"+pendArrow("renglon")+"</th>"+
-    "<th style='cursor:pointer' onclick='sortPend(\"producto\")'>Producto"+pendArrow("producto")+"</th>"+
-    "<th style='cursor:pointer' onclick='sortPend(\"proveedor\")'>Proveedor"+pendArrow("proveedor")+"</th>"+
-    "<th>Pedido</th><th>Entregado</th>"+
-    "<th style='cursor:pointer' onclick='sortPend(\"falta\")'>Falta"+pendArrow("falta")+"</th>"+
-    "</tr>";
+  if(thead){
+    var cols=[['oc','OC'],['x','Organismo'],['renglon','R°'],['producto','Producto'],['proveedor','Proveedor'],['x','Pedido'],['x','Entregado'],['falta','Falta']];
+    thead.innerHTML='<tr>'+cols.map(function(c){
+      var sortable=c[0]!=='x';
+      return '<th'+(sortable?' style="cursor:pointer" onclick="sortPend('+JSON.stringify(c[0])+')"':'')+'>'+c[1]+(sortable?pendArrow(c[0]):'')+' </th>';
+    }).join('')+'</tr>';
+  }
   if(!rows.length){tb.innerHTML='<tr><td colspan="8"><div class="empty"><i class="ti ti-check"></i>Sin pendientes</div></td></tr>';return;}
   tb.innerHTML=rows.map(x=>'<tr>'+
     '<td><button class="btn sm" onclick="verDetalle(''+x.oc.id+'')" style="color:var(--od-blue);border-color:var(--od-blue);padding:2px 8px">'+x.oc.numero+'</button></td>'+
