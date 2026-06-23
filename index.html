@@ -127,6 +127,7 @@ tr:hover td{background:#FAFAFA}
   <button class="nav-item" onclick="showPage('sin-facturar')" id="nav-sin-facturar"><i class="ti ti-receipt-off"></i> Sin facturar</button>
   <button class="nav-item" onclick="showPage('proveedores')" id="nav-proveedores"><i class="ti ti-truck"></i> Por proveedor</button>
   <button class="nav-item" onclick="showPage('resumen')" id="nav-resumen"><i class="ti ti-table"></i> Resumen artículos</button>
+  <button class="nav-item" onclick="showPage('listado-lp')" id="nav-listado-lp"><i class="ti ti-list"></i> Listado LP</button>
 </nav>
 
 <div class="main">
@@ -179,6 +180,27 @@ tr:hover td{background:#FAFAFA}
 <div class="page" id="page-proveedores"><div id="prov-content"></div></div>
 
 <div class="page" id="page-resumen"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem"><div></div><button class="btn orange" onclick="exportarResumenExcel()"><i class="ti ti-download"></i> Descargar Excel</button></div><div id="resumen-content"></div></div>
+
+<div class="page" id="page-listado-lp">
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:1rem">
+    <select id="lp-filter-lic" onchange="renderListadoLP()" style="padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:13px">
+      <option value="">Ambas licitaciones</option>
+      <option value="7/24">LP 7/24</option>
+      <option value="7/25">LP 7/25</option>
+    </select>
+    <select id="lp-filter-prov" onchange="renderListadoLP()" style="padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:13px">
+      <option value="">Todos los proveedores</option>
+    </select>
+    <input id="lp-search" type="text" placeholder="Buscar insumo..." oninput="renderListadoLP()" style="padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:13px;flex:1;min-width:150px">
+    <span id="lp-count" style="font-size:12px;color:var(--text-muted)"></span>
+  </div>
+  <div style="overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead id="lp-thead"></thead>
+      <tbody id="lp-tbody"></tbody>
+    </table>
+  </div>
+</div>
 
 </div></div>
 
@@ -253,7 +275,7 @@ const ref = db.ref('ocs');
 
 // ===== STATE =====
 const PROVEEDORES = ['Medrano','Megadental','Poquet','Belkys','Microdont','Easydent','Farmadental','Densell','Meta','Maillefer','KMD','Nipro','IBC','Mecadent','Muntal','Carestream','Romek','Scivita','Tribiselada'];
-const PAGE_TITLES = {dashboard:'Resumen general',ocs:'Órdenes de compra',detalle:'Detalle de OC',resolver:'Por resolver',pendientes:'Pendientes de entrega','sin-facturar':'Sin facturar',proveedores:'Por proveedor',resumen:'Resumen por artículo'};
+const PAGE_TITLES = {dashboard:'Resumen general',ocs:'Órdenes de compra',detalle:'Detalle de OC',resolver:'Por resolver',pendientes:'Pendientes de entrega','sin-facturar':'Sin facturar',proveedores:'Por proveedor',resumen:'Resumen por artículo','listado-lp':'Listado de insumos LP'};
 let state = {ocs:[], currentOC:null, currentResolver:null, currentPage:'dashboard', loaded:false};
 let rcnt = 0;
 
@@ -359,6 +381,7 @@ function showPage(id){
   if(id==='proveedores')renderProveedores();
   if(id==='resumen')renderResumen();
   if(id==='resolver')renderResolver();
+  if(id==='listado-lp')renderListadoLP();
 }
 function renderCurrentPage(){showPage(state.currentPage);}
 function renderAll(){updateBadge();renderDash();}
@@ -850,6 +873,141 @@ function exportarResumenExcel() {
   a.download = 'resumen-articulos-' + new Date().toISOString().slice(0,10) + '.csv';
   a.click();
   toast('Excel descargado', 'success');
+}
+
+// ===== LISTADO LP =====
+const LP_DATA = [{"lic":"7/24","renglon":1,"insumo":"AGUJAS NIPRO JAPON 30G x21mm CORTAS x100 descartables","proveedor":"Medrano","precio":29078.71},{"lic":"7/24","renglon":2,"insumo":"Acido Grabador GEL ETCH LV37% 12G Jeringa GREEN verde envase economico","proveedor":"Medrano","precio":18560.88},{"lic":"7/24","renglon":3,"insumo":"ADHESIVO MONOBOND 5ML Concentrado","proveedor":"Dentsply","precio":44855.46},{"lic":"7/24","renglon":4,"insumo":"UltraFill OA2 MD","proveedor":"Dentsply","precio":27067.95},{"lic":"7/24","renglon":5,"insumo":"UltraFill OA3 MD","proveedor":"Dentsply","precio":27067.95},{"lic":"7/24","renglon":6,"insumo":"IONOMERO DENSELL Tipo 2 avio 10g+8ml Restauracion","proveedor":"Medrano","precio":84916.03},{"lic":"7/24","renglon":31,"insumo":"ANSA BIPOLAR","proveedor":"Gastrotex","precio":533625.31},{"lic":"7/24","renglon":32,"insumo":"ANSA MONOPOLAR","proveedor":"Gastrotex","precio":928044.01},{"lic":"7/24","renglon":117,"insumo":"CANASTILLA DORMIA NITINOL ROTABLE ESPIRAL 20x40mm 195cm LARGO","proveedor":"","precio":507330.73},{"lic":"7/25","renglon":1,"insumo":"Aceite libricante en aerosol 910 ml KMD","proveedor":"Mecadent","precio":23041.35},{"lic":"7/25","renglon":2,"insumo":"Agujas p/Carpule Intermedias caja x 100 (30G x 25 mm) Nipro","proveedor":"Medrano","precio":30801.94},{"lic":"7/25","renglon":3,"insumo":"Agujas p/sutura 1/2 circulo quirúrgica nylon 4.0 caja x 12 unidades. Keeper","proveedor":"Muntal","precio":57048.91},{"lic":"7/25","renglon":4,"insumo":"Cariostatico  Fluorsilver 5ml Densell","proveedor":"Medrano","precio":35732.58},{"lic":"7/25","renglon":5,"insumo":"Hidroxido de Calcio Pasta Pasta 13gr+11gr Densell","proveedor":"Medrano","precio":28709.28},{"lic":"7/25","renglon":6,"insumo":"Endo G-Fill Grossman 20gr+10ml Densell","proveedor":"Medrano","precio":26737.82},{"lic":"7/25","renglon":7,"insumo":"Cepillo dental p/niño Cabezal 2,5x1cm con 26 agujeros, largo total 14cm IBC","proveedor":"IBC","precio":800.9},{"lic":"7/25","renglon":8,"insumo":"Tiras de Celuloide /Polyester 10x 0,05mm x100 tiritas Microdont","proveedor":"Megadental","precio":8132.24},{"lic":"7/25","renglon":9,"insumo":"Banda matriz de acero 5mm x 7mm x 3m Microdont","proveedor":"Megadental","precio":13307.3},{"lic":"7/25","renglon":10,"insumo":"Tiras para pulir composite 2,5mm x 100u Microdont","proveedor":"Megadental","precio":15648.4},{"lic":"7/25","renglon":11,"insumo":"Compresas descartables x 50 Unid. Ultra","proveedor":"Megadental","precio":6776.87},{"lic":"7/25","renglon":12,"insumo":"Conos de Gutapercha 1º Serie 15/40  Meta.","proveedor":"Megadental","precio":13368.91},{"lic":"7/25","renglon":13,"insumo":"Conos de Gutapercha Accesorios FF Meta","proveedor":"Megadental","precio":13368.91},{"lic":"7/25","renglon":14,"insumo":"Conos de Gutapercha Accesorios FM Meta","proveedor":"Megadental","precio":13368.91},{"lic":"7/25","renglon":15,"insumo":"Conos de Gutapercha Accesorios M Meta","proveedor":"Megadental","precio":13368.91},{"lic":"7/25","renglon":16,"insumo":"Conos de Gutapercha Accesorios MF Meta","proveedor":"Megadental","precio":13368.91},{"lic":"7/25","renglon":17,"insumo":"Conos de Gutapercha N° 30 Meta","proveedor":"Megadental","precio":13368.91},{"lic":"7/25","renglon":18,"insumo":"Conos de Gutapercha N° 35 Meta","proveedor":"Megadental","precio":13368.91},{"lic":"7/25","renglon":19,"insumo":"Conos de Gutapercha Nº 15 Meta","proveedor":"Megadental","precio":13368.91},{"lic":"7/25","renglon":20,"insumo":"Conos de Gutapercha Nº 20 Meta","proveedor":"Megadental","precio":13368.91},{"lic":"7/25","renglon":21,"insumo":"Conos de Gutapercha Nº 25 Meta","proveedor":"Megadental","precio":13368.91},{"lic":"7/25","renglon":22,"insumo":"Conos de Papel 1º Serie x 25 mm. Meta","proveedor":"Megadental","precio":10103.69},{"lic":"7/25","renglon":23,"insumo":"Cuñas de Madera x 100 Unidades Densell","proveedor":"Medrano","precio":24273.51},{"lic":"7/25","renglon":24,"insumo":"EDTA-C Ensanchador Químico Endo 15ml Densell","proveedor":"Medrano","precio":11705.5},{"lic":"7/25","renglon":25,"insumo":"Elevador apical  recto punta fina Belkys","proveedor":"Poquet","precio":18852.01},{"lic":"7/25","renglon":26,"insumo":"Espaciadores digitales Spreaders x 6  unidades  1° Serie Rogin","proveedor":"Megadental","precio":10719.77},{"lic":"7/25","renglon":27,"insumo":"Espatula para resina doble Belkys","proveedor":"Poquet","precio":28832.49},{"lic":"7/25","renglon":28,"insumo":"Espejos bucales x 12 Unidades Belkys","proveedor":"Poquet","precio":23903.86},{"lic":"7/25","renglon":29,"insumo":"Eugenol Puro x 20 mm Densell","proveedor":"Medrano","precio":15278.76},{"lic":"7/25","renglon":30,"insumo":"Explorador Belkys","proveedor":"Poquet","precio":5421.49},{"lic":"7/25","renglon":31,"insumo":"Eyectores p/saliva x 100 Unidades Easydent","proveedor":"Medrano","precio":9857.26},{"lic":"7/25","renglon":32,"insumo":"Flúor p/Topicaciones x 200cc Acidulado Densell","proveedor":"Medrano","precio":17619.86},{"lic":"7/25","renglon":33,"insumo":"Flúor p/Topicaciones x 200cc PHNeutro Densell","proveedor":"Medrano","precio":17619.86},{"lic":"7/25","renglon":34,"insumo":"Forceps raiz inferior Belkys","proveedor":"Poquet","precio":31789.67},{"lic":"7/25","renglon":35,"insumo":"Forceps raiz superior Belkys","proveedor":"Poquet","precio":31789.67},{"lic":"7/25","renglon":36,"insumo":"Fresa extralarga cilindrica N° 557 p/turbina Jet","proveedor":"Megadental","precio":8994.75},{"lic":"7/25","renglon":37,"insumo":"Fresa p/Contaángulo redonda grande N° 5 Jet","proveedor":"Megadental","precio":4805.42},{"lic":"7/25","renglon":38,"insumo":"Fresa p/Contraángulo redonda mediana N° 4 Jet","proveedor":"Megadental","precio":4805.42},{"lic":"7/25","renglon":39,"insumo":"Fresa p/Contraángulo redonda pequeña N° 3 Jet","proveedor":"Megadental","precio":4805.42},{"lic":"7/25","renglon":40,"insumo":"Fresa p/Turbina redonda N° 4 Jet","proveedor":"Megadental","precio":4312.55},{"lic":"7/25","renglon":41,"insumo":"Fresa p/Turbina redonda N° 5 Jet","proveedor":"Megadental","precio":4312.55},{"lic":"7/25","renglon":42,"insumo":"Fresa p/Turbina redonda N° 6  Jet","proveedor":"Megadental","precio":4312.55},{"lic":"7/25","renglon":43,"insumo":"Fresa XL redonda N° 4 p/turbina Jet","proveedor":"Megadental","precio":8994.75},{"lic":"7/25","renglon":44,"insumo":"Goma Dique 6 X 6 X 36 Unidades Densell","proveedor":"Megadental","precio":30434.3},{"lic":"7/25","renglon":45,"insumo":"Restaurador Temporario Frasco 40gr Densell","proveedor":"Medrano","precio":19098.45},{"lic":"7/25","renglon":46,"insumo":"Cemento Zoer Reforzado Avio 40gr+15ml Densell","proveedor":"Medrano","precio":52243.49},{"lic":"7/25","renglon":47,"insumo":"Iodoformo Purisimo x 10 Grs. Densell","proveedor":"Medrano","precio":18482.37},{"lic":"7/25","renglon":48,"insumo":"Ionomero MPLC 2 Restauración Foto 10gr+6ml Densell","proveedor":"Medrano","precio":113358.52},{"lic":"7/25","renglon":49,"insumo":"Lima  p/Endodoncia \"K\" N° 10   25mm  Maillefer","proveedor":"Dentsply","precio":31420.02},{"lic":"7/25","renglon":50,"insumo":"Lima  p/Endodoncia \"K\" N° 15   25mm  Maillefer","proveedor":"Dentsply","precio":31420.02},{"lic":"7/25","renglon":51,"insumo":"Lima  p/Endodoncia 1º Serie 15/40   25mm  Maillefer","proveedor":"Dentsply","precio":31420.02},{"lic":"7/25","renglon":52,"insumo":"Lima  p/Endodoncia Flexibles N° 20   25mm  Maillefer","proveedor":"Dentsply","precio":31420.02},{"lic":"7/25","renglon":53,"insumo":"Lima  p/Endodoncia Flexibles N° 25   25mm Maillefer","proveedor":"Dentsply","precio":31420.02},{"lic":"7/25","renglon":54,"insumo":"Liquido Fijador RX x 500 ml. Romek","proveedor":"Romek","precio":12321.58},{"lic":"7/25","renglon":55,"insumo":"Liquido Revelador RX x 500 ml. Romek","proveedor":"Romek","precio":18359.15},{"lic":"7/25","renglon":56,"insumo":"Microaplicador Descartables x 100 Un.","proveedor":"Poquet","precio":8255.46},{"lic":"7/25","renglon":57,"insumo":"Pasta Lentamente Reabsorbible Maisto - Densa 20gr Densell","proveedor":"Farmadental","precio":21932.41},{"lic":"7/25","renglon":58,"insumo":"Piedras de Diamante p/Turbin cilíndrica punta plana N° 1091 Microdont","proveedor":"Megadental","precio":3573.26},{"lic":"7/25","renglon":59,"insumo":"Piedras de Diamante p/Turbina p/Pulir composite N° 3118 EF (flama)  Microdont","proveedor":"Megadental","precio":3573.26},{"lic":"7/25","renglon":60,"insumo":"Piedras de Diamante p/Turbina p/Pulir composite N° 3195 EF Microdont","proveedor":"Megadental","precio":3573.26},{"lic":"7/25","renglon":61,"insumo":"Piedras de Diamante p/Turbina redondas Nº 1014 Microdont","proveedor":"Megadental","precio":3573.26},{"lic":"7/25","renglon":62,"insumo":"Piedras de Diamante p/Turbina redondas Nº 1016 Microdont","proveedor":"Megadental","precio":3573.26},{"lic":"7/25","renglon":63,"insumo":"Piedras de Diamante p/Turbina Tronco cónica Nº 2135 Microdont","proveedor":"Megadental","precio":3573.26},{"lic":"7/25","renglon":64,"insumo":"Pinza para Algodón Belkys","proveedor":"Poquet","precio":6900.08},{"lic":"7/25","renglon":65,"insumo":"Placas Radiográficas Periapicales D-Speed p/Adultos x 100 u Carestream","proveedor":"Kodent","precio":80090.26},{"lic":"7/25","renglon":66,"insumo":"Resina UltraFlow Jeringa 2gr Color A2","proveedor":"Megadental","precio":29325.36},{"lic":"7/25","renglon":67,"insumo":"Resina UltraFlow Jeringa 2gr Color A3","proveedor":"Megadental","precio":29325.36},{"lic":"7/25","renglon":68,"insumo":"Resina p/Fotocurado UltraFill 4gr Color A1","proveedor":"Dentsply","precio":28672.02},{"lic":"7/25","renglon":69,"insumo":"Resina p/Fotocurado UltraFill 4gr Color A2","proveedor":"Dentsply","precio":28672.02},{"lic":"7/25","renglon":70,"insumo":"Sealant P&F White con Fluor - Jeringa 1,5gr Fotocurado Densell","proveedor":"Medrano","precio":22548.49},{"lic":"7/25","renglon":71,"insumo":"Sindesmótomos Curvos Bekys","proveedor":"Poquet","precio":6284.0},{"lic":"7/25","renglon":72,"insumo":"Sindesmótomos Rectos Bekys","proveedor":"Poquet","precio":6284.0},{"lic":"7/25","renglon":73,"insumo":"Tijera para cirugia curva Bekys","proveedor":"Poquet","precio":8009.03},{"lic":"7/25","renglon":74,"insumo":"Tijera para cirugia recta Bekys","proveedor":"Poquet","precio":8009.03}];
+
+// Estado local editable (se inicializa desde LP_DATA, persiste en sessionStorage para la sesión)
+let lpEdits = {};
+function getLPItem(lic, renglon) {
+  const key = lic + '_' + renglon;
+  if(lpEdits[key]) return lpEdits[key];
+  const base = LP_DATA.find(r => r.lic === lic && r.renglon === renglon);
+  return base ? Object.assign({}, base) : null;
+}
+function getLPAll() {
+  return LP_DATA.map(r => getLPItem(r.lic, r.renglon));
+}
+
+function editLPRow(lic, renglon) {
+  const key = lic + '_' + renglon;
+  const item = getLPItem(lic, renglon);
+  const tr = document.getElementById('lp-row-' + key);
+  if(!tr || !item) return;
+  const licColor = lic === '7/24' ? 'var(--od-blue)' : 'var(--od-orange)';
+  const inp = "padding:4px 6px;border-radius:4px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:13px";
+  tr.innerHTML =
+    "<td><span style='background:" + licColor + ";color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:4px'>LP " + lic + "</span></td>" +
+    "<td style='font-weight:600;color:var(--text-muted)'>" + renglon + "</td>" +
+    "<td style='font-size:12px'>" + item.insumo + "</td>" +
+    "<td><input id='lp-edit-prov-" + key + "' value='" + (item.proveedor||'').replace(/'/g,"&#39;") + "' style='" + inp + ";width:120px'></td>" +
+    "<td style='text-align:right'><input id='lp-edit-precio-" + key + "' type='number' value='" + item.precio + "' style='" + inp + ";width:110px;text-align:right'></td>" +
+    "<td style='white-space:nowrap'>" +
+      "<button class='btn sm' style='color:var(--od-green,#22c55e);border-color:var(--od-green,#22c55e)' onclick='guardarLPRow(\"" + lic + "\"," + renglon + ")'>✓ Guardar</button> " +
+      "<button class='btn sm' onclick='renderListadoLP()'>✕</button>" +
+    "</td>";
+}
+
+async function guardarLPRow(lic, renglon) {
+  const key = lic + '_' + renglon;
+  const provEl = document.getElementById('lp-edit-prov-' + key);
+  const precioEl = document.getElementById('lp-edit-precio-' + key);
+  if(!provEl || !precioEl) return;
+  const newProv = provEl.value.trim();
+  const newPrecio = parseFloat(precioEl.value) || 0;
+
+  // 1. Actualizar estado local
+  const item = getLPItem(lic, renglon);
+  lpEdits[key] = Object.assign({}, item, {proveedor: newProv, precio: newPrecio});
+
+  // 2. Propagar a todas las OCs que coincidan por licitación + número de renglón
+  const ocsMod = [];
+  state.ocs.forEach(oc => {
+    if(oc.licitacion !== lic) return;
+    let modified = false;
+    (oc.renglones || []).forEach(r => {
+      if(parseInt(r.numero) === renglon) {
+        r.proveedor = newProv;
+        r.precio = newPrecio;
+        modified = true;
+      }
+    });
+    if(modified) ocsMod.push(oc);
+  });
+
+  // 3. Guardar en Firebase las OCs modificadas
+  if(ocsMod.length > 0) {
+    setSyncDot('syncing');
+    try {
+      for(const oc of ocsMod) {
+        const k = oc.id.replace(/[.#$[\]]/g, '_');
+        await db.ref('ocs').child(k).set(oc);
+      }
+      setSyncDot('ok');
+      toast('Actualizado en ' + ocsMod.length + ' OC' + (ocsMod.length > 1 ? 's' : '') + ' ✓', 'success');
+    } catch(e) {
+      setSyncDot('error');
+      toast('Error al guardar: ' + e.message, 'error');
+    }
+  } else {
+    toast('Guardado en listado (sin OCs con LP ' + lic + ' R°' + renglon + ')', 'success');
+  }
+  renderListadoLP();
+}
+
+function renderListadoLP() {
+  const licFil = document.getElementById('lp-filter-lic') ? document.getElementById('lp-filter-lic').value : '';
+  const provFil = document.getElementById('lp-filter-prov') ? document.getElementById('lp-filter-prov').value : '';
+  const search = (document.getElementById('lp-search') ? document.getElementById('lp-search').value : '').toLowerCase().trim();
+
+  // Poblar select de proveedores conservando selección
+  const provSel = document.getElementById('lp-filter-prov');
+  const curProv = provSel ? provSel.value : '';
+  const provs = [...new Set(getLPAll().map(r => r.proveedor).filter(Boolean))].sort();
+  if(provSel) {
+    provSel.innerHTML = '<option value="">Todos los proveedores</option>';
+    provs.forEach(p => { const o = document.createElement('option'); o.value = p; o.textContent = p; provSel.appendChild(o); });
+    provSel.value = curProv;
+  }
+
+  let rows = getLPAll().filter(r => {
+    if(licFil && r.lic !== licFil) return false;
+    if(provFil && r.proveedor !== provFil) return false;
+    if(search && !r.insumo.toLowerCase().includes(search) && !(r.proveedor||'').toLowerCase().includes(search)) return false;
+    return true;
+  });
+
+  document.getElementById('lp-count').textContent = rows.length + ' insumos';
+
+  const thS = "padding:8px 10px;text-align:left;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;border-bottom:2px solid var(--border);white-space:nowrap";
+  document.getElementById('lp-thead').innerHTML =
+    "<tr>" +
+    "<th style='" + thS + "'>Lic</th>" +
+    "<th style='" + thS + "'>R°</th>" +
+    "<th style='" + thS + "'>Insumo</th>" +
+    "<th style='" + thS + "'>Proveedor</th>" +
+    "<th style='" + thS + ";text-align:right'>Precio vigente</th>" +
+    "<th style='" + thS + "'></th>" +
+    "</tr>";
+
+  const tdS = "padding:8px 10px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:middle";
+  if(!rows.length) {
+    document.getElementById('lp-tbody').innerHTML = "<tr><td colspan='6' style='text-align:center;padding:24px;color:var(--text-muted)'>Sin resultados</td></tr>";
+    return;
+  }
+  document.getElementById('lp-tbody').innerHTML = rows.map(r => {
+    const key = r.lic + '_' + r.renglon;
+    const licColor = r.lic === '7/24' ? 'var(--od-blue)' : 'var(--od-orange)';
+    return "<tr id='lp-row-" + key + "' onmouseover=\"this.style.background='var(--bg-hover)'\" onmouseout=\"this.style.background=''\">" +
+      "<td style='" + tdS + "'><span style='background:" + licColor + ";color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:4px'>LP " + r.lic + "</span></td>" +
+      "<td style='" + tdS + ";font-weight:600;color:var(--text-muted)'>" + r.renglon + "</td>" +
+      "<td style='" + tdS + "'>" + r.insumo + "</td>" +
+      "<td style='" + tdS + "'>" + (r.proveedor ? "<span class='ptag'>" + r.proveedor + "</span>" : "<span style='color:var(--text-muted)'>-</span>") + "</td>" +
+      "<td style='" + tdS + ";text-align:right;font-weight:600;font-variant-numeric:tabular-nums'>$" + r.precio.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2}) + "</td>" +
+      "<td style='" + tdS + "'><button class='btn sm' onclick='editLPRow(\"" + r.lic + "\"," + r.renglon + ")' style='font-size:11px'><i class='ti ti-pencil'></i> Editar</button></td>" +
+      "</tr>";
+  }).join('');
 }
 
 // ===== INIT =====
