@@ -565,7 +565,7 @@ function renderProveedores(){
       const p=r.proveedor||'Sin proveedor';
       if(!pm[p])pm[p]={byProduct:{}};
       const pk=(r.cups||r.numero)+'_'+r.producto;
-      if(!pm[p].byProduct[pk])pm[p].byProduct[pk]={producto:r.producto,numero:r.numero,ocs:[],totalFalta:0};
+      if(!pm[p].byProduct[pk])pm[p].byProduct[pk]={producto:r.producto,numero:r.numero,precio:r.precio||0,ocs:[],totalFalta:0};
       pm[p].byProduct[pk].ocs.push({num:oc.numero,falta:f});
       pm[p].byProduct[pk].totalFalta+=f;
     });
@@ -574,21 +574,36 @@ function renderProveedores(){
   el.innerHTML=Object.entries(pm).sort((a,b)=>a[0].localeCompare(b[0])).map(([p,data])=>{
     const productos=Object.values(data.byProduct).sort((a,b)=>Number(a.numero)-Number(b.numero));
     const totalUnidades=productos.reduce((s,x)=>s+x.totalFalta,0);
-    return '<div style="margin-bottom:1.5rem">'+
-      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">'+
+    const totalPesos=productos.reduce((s,x)=>s+x.totalFalta*(x.precio||0),0);
+    return '<div style="margin-bottom:2rem">'+
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">'+
       '<span class="ptag" style="font-size:13px;padding:3px 12px;font-weight:600">'+p+'</span>'+
       '<span style="font-size:12px;color:var(--text-muted)">'+productos.length+' producto'+(productos.length!==1?'s':'')+' · '+fN(totalUnidades)+' u. totales</span>'+
+      '<span style="font-size:13px;font-weight:700;color:var(--od-blue);margin-left:auto">Total: '+fmt(totalPesos)+'</span>'+
       '</div>'+
-      '<div class="table-wrap"><table><thead><tr><th>R°</th><th>Producto</th><th>OCs que lo piden</th><th style="text-align:center">TOTAL A PEDIR</th></tr></thead><tbody>'+
+      '<div class="table-wrap"><table><thead><tr>'+
+      '<th>R°</th><th>Producto</th><th>OCs que lo piden</th>'+
+      '<th style="text-align:right">Precio u.</th>'+
+      '<th style="text-align:center">TOTAL u.</th>'+
+      '<th style="text-align:right">Subtotal $</th>'+
+      '</tr></thead><tbody>'+
       productos.map(x=>{
         const ocsStr=x.ocs.map(o=>'OC '+o.num+': '+fN(o.falta)+'u').join(' | ');
+        const subtotal=x.totalFalta*(x.precio||0);
         return '<tr>'+
           '<td style="font-size:11px;color:var(--text-muted)">'+x.numero+'</td>'+
           '<td>'+x.producto+'</td>'+
           '<td style="font-size:11px;color:var(--text-muted)">'+ocsStr+'</td>'+
+          '<td style="text-align:right;font-size:12px;color:var(--text-muted)">'+fmt(x.precio)+'</td>'+
           '<td style="font-weight:700;color:var(--od-orange);text-align:center;font-size:16px">'+fN(x.totalFalta)+'</td>'+
+          '<td style="text-align:right;font-weight:600;color:var(--od-blue)">'+fmt(subtotal)+'</td>'+
           '</tr>';
       }).join('')+
+      '<tr style="border-top:2px solid var(--border);background:var(--bg-hover)">'+
+      '<td colspan="4"></td>'+
+      '<td style="font-weight:700;text-align:center;font-size:15px">'+fN(totalUnidades)+'</td>'+
+      '<td style="text-align:right;font-weight:700;color:var(--od-blue);font-size:15px">'+fmt(totalPesos)+'</td>'+
+      '</tr>'+
       '</tbody></table></div></div>';
   }).join('');
 }
@@ -922,9 +937,12 @@ async function guardarLPRow(lic, renglon) {
   lpEdits[key] = Object.assign({}, item, {proveedor: newProv, precio: newPrecio});
 
   // 2. Propagar a todas las OCs que coincidan por licitación + número de renglón
+  // Las OCs guardan licitación como "LP07/25" o "LP07/24", LP_DATA usa "7/25" / "7/24"
+  // Normalizamos: "7/25" → "LP07/25", "7/24" → "LP07/24"
+  const licNorm = 'LP0' + lic.replace('/', '/'); // "7/25" → "LP07/25"
   const ocsMod = [];
   state.ocs.forEach(oc => {
-    if(oc.licitacion !== lic) return;
+    if(oc.licitacion !== licNorm) return;
     let modified = false;
     (oc.renglones || []).forEach(r => {
       if(parseInt(r.numero) === renglon) {
