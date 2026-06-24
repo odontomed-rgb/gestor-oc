@@ -307,6 +307,41 @@ async function deleteOC(id) {
   await ref.child(key).remove();
 }
 
+// Normaliza "LP07/25" → "7/25" para comparar con LP_DATA
+function normalizarLic(lic) {
+  if(!lic) return '';
+  // "LP07/25" → "7/25", "LP07/24" → "7/24"
+  const m = lic.match(/(\d+)\/(\d+)$/);
+  return m ? (parseInt(m[1]) + '/' + m[2]) : lic;
+}
+
+async function sincronizarProveedoresLP() {
+  const ocsMod = [];
+  state.ocs.forEach(oc => {
+    const licNorm = normalizarLic(oc.licitacion);
+    let modified = false;
+    (oc.renglones || []).forEach(r => {
+      const lpItem = LP_DATA.find(x => x.lic === licNorm && x.renglon === parseInt(r.numero));
+      if(lpItem && lpItem.proveedor && r.proveedor !== lpItem.proveedor) {
+        r.proveedor = lpItem.proveedor;
+        modified = true;
+      }
+    });
+    if(modified) ocsMod.push(oc);
+  });
+  if(ocsMod.length > 0) {
+    try {
+      for(const oc of ocsMod) {
+        const k = oc.id.replace(/[.#$[\]]/g, '_');
+        await db.ref('ocs').child(k).set(oc);
+      }
+      console.log('[LP Sync] Proveedores actualizados en ' + ocsMod.length + ' OC(s)');
+    } catch(e) {
+      console.warn('[LP Sync] Error al sincronizar:', e.message);
+    }
+  }
+}
+
 function initFirebase() {
   setSyncDot('syncing');
   ref.on('value', snap => {
@@ -317,6 +352,10 @@ function initFirebase() {
       // Primera vez: cargar seed
       OCS_SEED.forEach(oc => saveOC(oc));
       state.ocs = JSON.parse(JSON.stringify(OCS_SEED));
+    }
+    if(!state.loaded) {
+      // Solo en la primera carga sincronizamos proveedores
+      sincronizarProveedoresLP();
     }
     state.loaded = true;
     setSyncDot('ok');
@@ -937,9 +976,8 @@ async function guardarLPRow(lic, renglon) {
   lpEdits[key] = Object.assign({}, item, {proveedor: newProv, precio: newPrecio});
 
   // 2. Propagar a todas las OCs que coincidan por licitación + número de renglón
-  // Las OCs guardan licitación como "LP07/25" o "LP07/24", LP_DATA usa "7/25" / "7/24"
-  // Normalizamos: "7/25" → "LP07/25", "7/24" → "LP07/24"
-  const licNorm = 'LP0' + lic.replace('/', '/'); // "7/25" → "LP07/25"
+  // Convertir "7/25" → "LP07/25" para comparar con las OCs
+  const licNorm = 'LP0' + lic; // "7/25" → "LP07/25"
   const ocsMod = [];
   state.ocs.forEach(oc => {
     if(oc.licitacion !== licNorm) return;
