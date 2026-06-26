@@ -429,7 +429,7 @@ function renderAll(){updateBadge();renderDash();}
 function renderDash(){
   updateBadge();
   const org=getOrg();
-  const ocs=state.ocs.filter(o=>o.estado!=='cerrada'&&(!org||o.organismo===org));
+  const ocs=state.ocs.filter(o=>o.estado!=='cerrada'&&(!org||o.organismo===org)).sort((a,b)=>Number(a.numero)-Number(b.numero));
   let tM=0,tE=0,tF=0;
   ocs.forEach(o=>{const c=calcOC(o);tM+=c.montoOC;tE+=c.totalEnt;tF+=c.totalFac;});
   const pend=countPending();
@@ -459,7 +459,7 @@ function renderOCs(){
   const lp=document.getElementById('fo-lp')?.value||'';
   const est=document.getElementById('fo-est')?.value||'';
   const bus=(document.getElementById('fo-bus')?.value||'').toLowerCase();
-  const ocs=state.ocs.filter(o=>(!org||o.organismo===org)&&(!lp||o.licitacion===lp)&&(!est||o.estado===est||(!o.estado&&est==='activa'))&&(!bus||o.numero.includes(bus)));
+  const ocs=state.ocs.filter(o=>(!org||o.organismo===org)&&(!lp||o.licitacion===lp)&&(!est||o.estado===est||(!o.estado&&est==='activa'))&&(!bus||o.numero.includes(bus))).sort((a,b)=>Number(a.numero)-Number(b.numero));
   const tb=document.getElementById('ocs-tbody');
   if(!ocs.length){tb.innerHTML='<tr><td colspan="9"><div class="empty"><i class="ti ti-file-invoice"></i>Sin OCs</div></td></tr>';return;}
   tb.innerHTML=ocs.map(o=>{const c=calcOC(o);return'<tr>'+
@@ -538,12 +538,12 @@ function renderPendientes(){
   });
   rows.sort(function(a,b){
     var va,vb;
-    if(_pendSort.col==="oc"){va=a.oc.numero;vb=b.oc.numero;}
+    if(_pendSort.col==="oc"){va=Number(a.oc.numero);vb=Number(b.oc.numero);}
     else if(_pendSort.col==="producto"){va=a.r.producto;vb=b.r.producto;}
     else if(_pendSort.col==="proveedor"){va=a.r.proveedor||"";vb=b.r.proveedor||"";}
     else if(_pendSort.col==="renglon"){va=Number(a.r.numero);vb=Number(b.r.numero);}
     else if(_pendSort.col==="falta"){va=a.f;vb=b.f;}
-    else{va=a.oc.numero;vb=b.oc.numero;}
+    else{va=Number(a.oc.numero);vb=Number(b.oc.numero);}
     if(va<vb)return -1*_pendSort.dir;
     if(va>vb)return 1*_pendSort.dir;
     return 0;
@@ -578,8 +578,7 @@ function renderSinFacturar(){
   const org=getOrg();
   const tb=document.getElementById('sf-tbody');
   let rows=[];
-  state.ocs.filter(o=>o.estado!=='cerrada'&&(!org||o.organismo===org)).forEach(oc=>{
-    (oc.entregas||[]).forEach(e=>{const fac=(oc.facturas||[]).some(f=>(f.remitos||[]).includes(e.remito));if(!fac){const val=(e.items||[]).reduce((s,i)=>{const r=(oc.renglones||[]).find(x=>x.id===i.renglon);return s+(r?(i.cantidad||0)*(r.precio||0):0);},0);rows.push({oc,e,val,n:(e.items||[]).filter(i=>i.cantidad>0).length});}});
+  state.ocs.filter(o=>o.estado!=='cerrada'&&(!org||o.organismo===org)).sort((a,b)=>Number(a.numero)-Number(b.numero)).forEach(oc=>{const val=(e.items||[]).reduce((s,i)=>{const r=(oc.renglones||[]).find(x=>x.id===i.renglon);return s+(r?(i.cantidad||0)*(r.precio||0):0);},0);rows.push({oc,e,val,n:(e.items||[]).filter(i=>i.cantidad>0).length});}});
   });
   if(!rows.length){tb.innerHTML='<tr><td colspan="7"><div class="empty"><i class="ti ti-check"></i>Todo facturado</div></td></tr>';return;}
   tb.innerHTML=rows.map(x=>'<tr>'+
@@ -597,9 +596,7 @@ function renderProveedores(){
   const org=getOrg();
   const el=document.getElementById('prov-content');
   const pm={};
-  state.ocs.filter(o=>o.estado!=='cerrada'&&(!org||o.organismo===org)).forEach(oc=>{
-    (oc.renglones||[]).forEach(r=>{
-      const e=getEnt(oc,r.id),f=Math.max(0,(r.cantidad||0)-e);
+  state.ocs.filter(o=>o.estado!=='cerrada'&&(!org||o.organismo===org)).sort((a,b)=>Number(a.numero)-Number(b.numero)).forEach(oc=>{
       if(f<=0)return;
       const p=r.proveedor||'Sin proveedor';
       if(!pm[p])pm[p]={byProduct:{}};
