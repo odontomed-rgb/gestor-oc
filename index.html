@@ -209,7 +209,7 @@ tr:hover td{background:#FAFAFA}
     <div class="form-row"><label class="form-label">Fecha</label><input type="date" id="ment-fecha"></div>
   </div>
   <div class="nota-box"><i class="ti ti-info-circle"></i>Solo ingresá las cantidades de este remito. Dejá en 0 lo que no se entrega.</div>
-  <div style="overflow-x:auto"><table class="rtable"><thead><tr><th>#</th><th>Producto</th><th>Falta</th><th>En este remito</th><th>Lote</th><th>Vencimiento</th></tr></thead><tbody id="ment-tbody"></tbody></table></div>
+  <div style="overflow-x:auto"><table class="rtable"><thead><tr><th>#</th><th>Producto</th><th>Falta</th><th>En este remito</th><th>Lote</th><th>Vencimiento</th><th>Observaciones</th></tr></thead><tbody id="ment-tbody"></tbody></table></div>
   <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:1.25rem">
     <button class="btn" onclick="closeModal('modal-entrega')">Cancelar</button>
     <button class="btn primary" onclick="guardarEntrega()">Registrar entrega</button>
@@ -420,7 +420,7 @@ function renderDetalle(oc){
   const eH=(oc.entregas||[]).length?(oc.entregas||[]).map(e=>{
     const fac=(oc.facturas||[]).some(f=>(f.remitos||[]).includes(e.remito));
     const items=(e.items||[]).filter(i=>i.cantidad>0).map(i=>{const r=(oc.renglones||[]).find(x=>x.id===i.renglon);return r?r.producto+': '+fN(i.cantidad)+' u.':''}).filter(Boolean).join(' · ');
-    return'<div class="ent-card '+(fac?'fac':'')+'"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><div><strong style="color:var(--od-blue)">Remito '+e.remito+'</strong> <span style="font-size:12px;color:var(--text-muted)">'+(e.fecha||'')+'</span></div>'+(fac?'<span class="badge green">Facturado</span>':'<span class="badge orange">Sin facturar</span>')+'</div><div style="font-size:12px;color:var(--text-muted)">'+(items||'Sin ítems')+'</div></div>';}).join(''):'<div class="empty"><i class="ti ti-truck"></i>Sin entregas</div>';
+    return'<div class="ent-card '+(fac?'fac':'')+'"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><div><strong style="color:var(--od-blue)">Remito '+e.remito+'</strong> <span style="font-size:12px;color:var(--text-muted)">'+(e.fecha||'')+'</span></div><div style="display:flex;gap:6px;align-items:center">'+(fac?'<span class="badge green">Facturado</span>':'<span class="badge orange">Sin facturar</span>')+'<button class="btn sm" onclick="imprimirRemito(\''+oc.id+'\',\''+e.id+'\')" style="font-size:11px"><i class="ti ti-printer"></i> PDF</button></div></div><div style="font-size:12px;color:var(--text-muted)">'+(items||'Sin ítems')+'</div></div>';}).join(''):'<div class="empty"><i class="ti ti-truck"></i>Sin entregas</div>';
   const fH=(oc.facturas||[]).length?(oc.facturas||[]).map(f=>'<div class="fac-card"><div style="display:flex;justify-content:space-between"><div><strong style="color:var(--od-blue)">Fac. '+f.numero+'</strong> <span style="font-size:12px;color:var(--text-muted)">'+(f.fecha||'')+'</span></div><div style="font-weight:600">'+fmt(f.monto)+'</div></div><div style="font-size:12px;color:var(--text-muted);margin-top:2px">Remitos: '+((f.remitos||[]).join(', ')||'-')+'</div></div>').join(''):'<div class="empty"><i class="ti ti-file-invoice"></i>Sin facturas</div>';
   document.getElementById('detalle-content').innerHTML=
     '<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem">'+
@@ -712,13 +712,13 @@ function openEntrega(ocId){
   document.getElementById('ment-ocnum').textContent=oc.numero;
   document.getElementById('ment-remito').value='';
   document.getElementById('ment-fecha').value=new Date().toISOString().slice(0,10);
-  document.getElementById('ment-tbody').innerHTML=(oc.renglones||[]).map(r=>{const e=getEnt(oc,r.id),f=Math.max(0,(r.cantidad||0)-e);return'<tr><td style="font-size:11px">'+r.numero+'</td><td style="font-size:12px">'+r.producto+'</td><td style="color:'+(f>0?'var(--od-orange)':'var(--text-muted)')+'">'+fN(f)+'</td><td><input type="number" min="0" style="width:70px" id="eq-'+r.id+'" value="0"></td><td><input type="text" style="width:90px;font-size:11px" id="lot-'+r.id+'" placeholder="Lote"></td><td><input type="text" style="width:90px;font-size:11px" id="ven-'+r.id+'" placeholder="Vencim."></td></tr>';}).join('');
+  document.getElementById('ment-tbody').innerHTML=(oc.renglones||[]).map(r=>{const e=getEnt(oc,r.id),f=Math.max(0,(r.cantidad||0)-e);return'<tr><td style="font-size:11px">'+r.numero+'</td><td style="font-size:12px">'+r.producto+'</td><td style="color:'+(f>0?'var(--od-orange)':'var(--text-muted)')+'">'+ fN(f)+'</td><td><input type="number" min="0" style="width:70px" id="eq-'+r.id+'" value="0"></td><td><input type="text" style="width:90px;font-size:11px" id="lot-'+r.id+'" placeholder="Lote"></td><td><input type="text" style="width:90px;font-size:11px" id="ven-'+r.id+'" placeholder="Vencim."></td><td><input type="text" style="width:130px;font-size:11px" id="obs-'+r.id+'" placeholder="Observaciones"></td></tr>';}).join('');
   openModal('modal-entrega');
 }
 async function guardarEntrega(){
   const oc=state.ocs.find(o=>o.id===state.currentOC);if(!oc)return;
   const remito=document.getElementById('ment-remito').value.trim();if(!remito){alert('Ingresá el N° de remito');return;}
-  const items=[];(oc.renglones||[]).forEach(r=>{const q=parseFloat(document.getElementById('eq-'+r.id)?.value)||0;if(q>0){const lot=(document.getElementById('lot-'+r.id)?.value||'').trim();const ven=(document.getElementById('ven-'+r.id)?.value||'').trim();items.push({renglon:r.id,cantidad:q,lote:lot,vencimiento:ven});}});
+  const items=[];(oc.renglones||[]).forEach(r=>{const q=parseFloat(document.getElementById('eq-'+r.id)?.value)||0;if(q>0){const lot=(document.getElementById('lot-'+r.id)?.value||'').trim();const ven=(document.getElementById('ven-'+r.id)?.value||'').trim();const obs=(document.getElementById('obs-'+r.id)?.value||'').trim();items.push({renglon:r.id,cantidad:q,lote:lot,vencimiento:ven,observaciones:obs});}});
   if(!items.length){alert('Ingresá al menos una cantidad');return;}
   if(!oc.entregas)oc.entregas=[];
   oc.entregas.push({id:'e'+Date.now(),remito,fecha:document.getElementById('ment-fecha').value,items});
@@ -865,6 +865,83 @@ function exportarResumenExcel() {
   a.download = 'resumen-articulos-' + new Date().toISOString().slice(0,10) + '.csv';
   a.click();
   toast('Excel descargado', 'success');
+}
+
+// ===== IMPRIMIR REMITO PDF =====
+function imprimirRemito(ocId, entregaId) {
+  const oc = state.ocs.find(o => o.id === ocId);
+  if(!oc) return;
+  const e = (oc.entregas || []).find(x => x.id === entregaId);
+  if(!e) return;
+
+  const items = (e.items || []).filter(i => i.cantidad > 0).map(i => {
+    const r = (oc.renglones || []).find(x => x.id === i.renglon);
+    if(!r) return null;
+    return {
+      numero: r.numero,
+      producto: r.producto,
+      proveedor: r.proveedor || '-',
+      cantidad: i.cantidad,
+      lote: i.lote || '-',
+      vencimiento: i.vencimiento || '-',
+      observaciones: i.observaciones || ''
+    };
+  }).filter(Boolean).sort((a,b) => Number(a.numero) - Number(b.numero));
+
+  const filas = items.map(i => `
+    <tr>
+      <td>${i.numero}</td>
+      <td>${i.producto}</td>
+      <td>${i.proveedor}</td>
+      <td style="text-align:center">${i.cantidad}</td>
+      <td>${i.lote}</td>
+      <td>${i.vencimiento}</td>
+      <td>${i.observaciones}</td>
+    </tr>`).join('');
+
+  const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+  <title>Remito ${e.remito}</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Arial,sans-serif;font-size:12px;color:#111;padding:24px}
+    .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;border-bottom:2px solid #0A2FA8;padding-bottom:12px}
+    .brand{font-size:18px;font-weight:700;color:#0A2FA8}
+    .brand-sub{font-size:11px;color:#6B7280;margin-top:2px}
+    .info-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:20px;background:#EEF3FF;border-radius:6px;padding:12px}
+    .info-item .lbl{font-size:10px;color:#6B7280;text-transform:uppercase;font-weight:600;margin-bottom:2px}
+    .info-item .val{font-size:13px;font-weight:600;color:#1A1A2E}
+    table{width:100%;border-collapse:collapse;font-size:11px}
+    th{background:#0A2FA8;color:white;padding:6px 8px;text-align:left;font-size:10px;text-transform:uppercase}
+    td{padding:6px 8px;border-bottom:1px solid #E5E7EB;vertical-align:top}
+    tr:nth-child(even) td{background:#F9FAFB}
+    .footer{margin-top:24px;padding-top:12px;border-top:1px solid #E5E7EB;font-size:10px;color:#6B7280;display:flex;justify-content:space-between}
+    @media print{body{padding:12px}.no-print{display:none}}
+  </style></head><body>
+  <div class="header">
+    <div><div class="brand">Odontomed Insumos</div><div class="brand-sub">Delpat S.R.L. — Balcarce 224, Salta</div></div>
+    <div style="text-align:right"><div style="font-size:16px;font-weight:700;color:#E8710A">Remito ${e.remito}</div><div style="font-size:11px;color:#6B7280">${e.fecha || ''}</div></div>
+  </div>
+  <div class="info-grid">
+    <div class="info-item"><div class="lbl">Orden de compra</div><div class="val">OC ${oc.numero}</div></div>
+    <div class="info-item"><div class="lbl">Organismo</div><div class="val">${oc.organismo}</div></div>
+    <div class="info-item"><div class="lbl">Licitación</div><div class="val">${oc.licitacion}</div></div>
+  </div>
+  <table>
+    <thead><tr><th>R°</th><th>Producto</th><th>Proveedor</th><th style="text-align:center">Cant.</th><th>Lote</th><th>Vencimiento</th><th>Observaciones</th></tr></thead>
+    <tbody>${filas}</tbody>
+  </table>
+  <div class="footer">
+    <span>Odontomed Insumos — Delpat S.R.L.</span>
+    <span>Remito: ${e.remito} · OC: ${oc.numero} · ${e.fecha || ''}</span>
+  </div>
+  <div class="no-print" style="margin-top:20px;text-align:center">
+    <button onclick="window.print()" style="padding:10px 24px;background:#0A2FA8;color:white;border:none;border-radius:6px;font-size:13px;cursor:pointer">🖨️ Imprimir / Guardar PDF</button>
+  </div>
+  </body></html>`;
+
+  const win = window.open('', '_blank');
+  win.document.write(html);
+  win.document.close();
 }
 
 // ===== INIT =====
