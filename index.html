@@ -305,27 +305,7 @@ function initFirebase() {
   });
 }
 
-// ===== NORMALIZAR REMITO =====
-// Convierte "R05-375", "Rto 05-000375", "Rto 05-375", "R 05-375" etc.
-// al formato canónico "R05-XXXXX" con número de 5 dígitos con ceros a la izquierda
-function normalizarRemito(r) {
-  if(!r) return '';
-  // Extraer letras de prefijo, número de serie y número de remito
-  const s = r.toString().trim().toUpperCase().replace(/\s+/g,'');
-  // Intentar extraer dos grupos de dígitos: serie (ej: 05) y número (ej: 375)
-  const m = s.match(/[A-Z]*(\d+)[^0-9]+0*(\d+)/);
-  if(m) {
-    const serie = m[1].padStart(2,'0');
-    const num   = m[2].padStart(5,'0');
-    return 'R' + serie + '-' + num;
-  }
-  return s;
-}
-
-function remitosCoinciden(remito, listaRemitos) {
-  const rNorm = normalizarRemito(remito);
-  return (listaRemitos||[]).some(fr => normalizarRemito(fr) === rNorm);
-}
+// ===== TOAST =====
 function toast(msg, type='') {
   const t = document.getElementById('toast');
   t.textContent = msg;
@@ -383,11 +363,13 @@ function showPage(id){
 function renderCurrentPage(){showPage(state.currentPage);}
 function renderAll(){updateBadge();renderDash();}
 
+function sortOCs(arr){return arr.sort((a,b)=>{const fa=a.fecha||'',fb=b.fecha||'';if(fa&&fb)return fb.localeCompare(fa);if(fa)return -1;if(fb)return 1;return Number(a.numero)-Number(b.numero);});}
+
 // ===== DASHBOARD =====
 function renderDash(){
   updateBadge();
   const org=getOrg();
-  const ocs=state.ocs.filter(o=>o.estado!=='cerrada'&&(!org||o.organismo===org));
+  const ocs=sortOCs(state.ocs.filter(o=>o.estado!=='cerrada'&&(!org||o.organismo===org)));
   let tM=0,tE=0,tF=0;
   ocs.forEach(o=>{const c=calcOC(o);tM+=c.montoOC;tE+=c.totalEnt;tF+=c.totalFac;});
   const pend=countPending();
@@ -417,7 +399,7 @@ function renderOCs(){
   const lp=document.getElementById('fo-lp')?.value||'';
   const est=document.getElementById('fo-est')?.value||'';
   const bus=(document.getElementById('fo-bus')?.value||'').toLowerCase();
-  const ocs=state.ocs.filter(o=>(!org||o.organismo===org)&&(!lp||o.licitacion===lp)&&(!est||o.estado===est||(!o.estado&&est==='activa'))&&(!bus||o.numero.includes(bus)));
+  const ocs=sortOCs(state.ocs.filter(o=>(!org||o.organismo===org)&&(!lp||o.licitacion===lp)&&(!est||o.estado===est||(!o.estado&&est==='activa'))&&(!bus||o.numero.includes(bus))));
   const tb=document.getElementById('ocs-tbody');
   if(!ocs.length){tb.innerHTML='<tr><td colspan="9"><div class="empty"><i class="ti ti-file-invoice"></i>Sin OCs</div></td></tr>';return;}
   tb.innerHTML=ocs.map(o=>{const c=calcOC(o);return'<tr>'+
@@ -438,9 +420,9 @@ function renderDetalle(oc){
   const rH=(oc.renglones||[]).map(r=>{const e=getEnt(oc,r.id),f=Math.max(0,(r.cantidad||0)-e);
     return'<tr><td style="font-size:11px;color:var(--text-muted)">'+r.numero+'</td><td>'+r.producto+'</td><td><span class="ptag">'+(r.proveedor||'-')+'</span></td><td>'+fN(r.cantidad)+'</td><td>'+fN(e)+'</td><td style="color:'+(f>0?'var(--od-orange)':'#16A34A')+';font-weight:'+(f>0?600:400)+'">'+fN(f)+'</td><td>'+(f<=0?'<span class="badge green">OK</span>':e>0?'<span class="badge amber">Parcial</span>':'<span class="badge red">Pendiente</span>')+'</td></tr>';}).join('');
   const eH=(oc.entregas||[]).length?(oc.entregas||[]).map(e=>{
-    const fac=(oc.facturas||[]).some(f=>remitosCoinciden(e.remito, f.remitos));
+    const fac=(oc.facturas||[]).some(f=>(f.remitos||[]).includes(e.remito));
     const items=(e.items||[]).filter(i=>i.cantidad>0).map(i=>{const r=(oc.renglones||[]).find(x=>x.id===i.renglon);return r?r.producto+': '+fN(i.cantidad)+' u.':''}).filter(Boolean).join(' · ');
-    return'<div class="ent-card '+(fac?'fac':'')+'"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><div><strong style="color:var(--od-blue)">Remito '+e.remito+'</strong> <span style="font-size:12px;color:var(--text-muted)">'+(e.fecha||'')+'</span></div><div style="display:flex;gap:6px;align-items:center">'+(fac?'<span class="badge green">Facturado</span>':'<span class="badge orange">Sin facturar</span>')+'<button class="btn sm" onclick="editarNumeroRemito(\''+oc.id+'\',\''+e.id+'\')" style="font-size:11px" title="Editar número de remito"><i class="ti ti-pencil"></i></button><button class="btn sm" onclick="imprimirRemito(\''+oc.id+'\',\''+e.id+'\')" style="font-size:11px"><i class="ti ti-printer"></i> PDF</button><button class="btn sm danger" onclick="eliminarRemito(\''+oc.id+'\',\''+e.id+'\')" style="font-size:11px"><i class="ti ti-trash"></i></button></div></div><div style="font-size:12px;color:var(--text-muted)">'+(items||'Sin ítems')+'</div></div>';}).join(''):'<div class="empty"><i class="ti ti-truck"></i>Sin entregas</div>';
+    return'<div class="ent-card '+(fac?'fac':'')+'"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><div><strong style="color:var(--od-blue)">Remito '+e.remito+'</strong> <span style="font-size:12px;color:var(--text-muted)">'+(e.fecha||'')+'</span></div><div style="display:flex;gap:6px;align-items:center">'+(fac?'<span class="badge green">Facturado</span>':'<span class="badge orange">Sin facturar</span>')+'<button class="btn sm" onclick="imprimirRemito(\''+oc.id+'\',\''+e.id+'\')" style="font-size:11px"><i class="ti ti-printer"></i> PDF</button></div></div><div style="font-size:12px;color:var(--text-muted)">'+(items||'Sin ítems')+'</div></div>';}).join(''):'<div class="empty"><i class="ti ti-truck"></i>Sin entregas</div>';
   const fH=(oc.facturas||[]).length?(oc.facturas||[]).map(f=>'<div class="fac-card"><div style="display:flex;justify-content:space-between"><div><strong style="color:var(--od-blue)">Fac. '+f.numero+'</strong> <span style="font-size:12px;color:var(--text-muted)">'+(f.fecha||'')+'</span></div><div style="font-weight:600">'+fmt(f.monto)+'</div></div><div style="font-size:12px;color:var(--text-muted);margin-top:2px">Remitos: '+((f.remitos||[]).join(', ')||'-')+'</div></div>').join(''):'<div class="empty"><i class="ti ti-file-invoice"></i>Sin facturas</div>';
   document.getElementById('detalle-content').innerHTML=
     '<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem">'+
@@ -537,7 +519,7 @@ function renderSinFacturar(){
   const tb=document.getElementById('sf-tbody');
   let rows=[];
   state.ocs.filter(o=>o.estado!=='cerrada'&&(!org||o.organismo===org)).sort((a,b)=>Number(a.numero)-Number(b.numero)).forEach(oc=>{
-    (oc.entregas||[]).forEach(e=>{const fac=(oc.facturas||[]).some(f=>remitosCoinciden(e.remito, f.remitos));if(!fac){const val=(e.items||[]).reduce((s,i)=>{const r=(oc.renglones||[]).find(x=>x.id===i.renglon);return s+(r?(i.cantidad||0)*(r.precio||0):0);},0);rows.push({oc,e,val,n:(e.items||[]).filter(i=>i.cantidad>0).length});}});
+    (oc.entregas||[]).forEach(e=>{const fac=(oc.facturas||[]).some(f=>(f.remitos||[]).includes(e.remito));if(!fac){const val=(e.items||[]).reduce((s,i)=>{const r=(oc.renglones||[]).find(x=>x.id===i.renglon);return s+(r?(i.cantidad||0)*(r.precio||0):0);},0);rows.push({oc,e,val,n:(e.items||[]).filter(i=>i.cantidad>0).length});}});
   });
   if(!rows.length){tb.innerHTML='<tr><td colspan="7"><div class="empty"><i class="ti ti-check"></i>Todo facturado</div></td></tr>';return;}
   tb.innerHTML=rows.map(x=>'<tr>'+
@@ -695,7 +677,7 @@ async function guardarEdicionOC(id){
     proveedor:tr.querySelector('[id^=rv-]')?.value||'',
     cantidad:parseFloat(tr.querySelector('[id^=rc-]')?.value)||0,
     precio:parseFloat(tr.querySelector('[id^=rpr-]')?.value)||0
-  })).filter(r=>r.producto);
+  })).filter(r=>r.producto).sort((a,b)=>Number(a.numero)-Number(b.numero));
   await saveOC(oc);closeModal('modal-oc');renderDetalle(oc);
   toast('OC '+oc.numero+' actualizada','success');
 }
@@ -720,7 +702,7 @@ function addRenglon(d){
 async function guardarOC(){
   const num=document.getElementById('moc-num').value.trim();if(!num){alert('Ingresá el N° de OC');return;}
   const rows=[...document.getElementById('moc-rngl').querySelectorAll('tr')];
-  const renglones=rows.map(tr=>({id:tr.dataset.oid,numero:tr.querySelector('[id^=rn-]')?.value||'',producto:tr.querySelector('[id^=rp-]')?.value||'',proveedor:tr.querySelector('[id^=rv-]')?.value||'',cantidad:parseFloat(tr.querySelector('[id^=rc-]')?.value)||0,precio:parseFloat(tr.querySelector('[id^=rpr-]')?.value)||0})).filter(r=>r.producto);
+  const renglones=rows.map(tr=>({id:tr.dataset.oid,numero:tr.querySelector('[id^=rn-]')?.value||'',producto:tr.querySelector('[id^=rp-]')?.value||'',proveedor:tr.querySelector('[id^=rv-]')?.value||'',cantidad:parseFloat(tr.querySelector('[id^=rc-]')?.value)||0,precio:parseFloat(tr.querySelector('[id^=rpr-]')?.value)||0})).filter(r=>r.producto).sort((a,b)=>Number(a.numero)-Number(b.numero));
   const oc={id:'oc'+Date.now(),numero:num,organismo:document.getElementById('moc-org').value,fecha:document.getElementById('moc-fecha').value,licitacion:document.getElementById('moc-lp').value,notas:document.getElementById('moc-notas').value,renglones,entregas:[],facturas:[],estado:'activa',pendingItems:[]};
   await saveOC(oc);closeModal('modal-oc');
 }
@@ -885,33 +867,6 @@ function exportarResumenExcel() {
   a.download = 'resumen-articulos-' + new Date().toISOString().slice(0,10) + '.csv';
   a.click();
   toast('Excel descargado', 'success');
-}
-
-// ===== EDITAR NÚMERO DE REMITO =====
-async function editarNumeroRemito(ocId, entregaId) {
-  const oc = state.ocs.find(o => o.id === ocId);
-  if(!oc) return;
-  const e = (oc.entregas || []).find(x => x.id === entregaId);
-  if(!e) return;
-  const nuevo = prompt('Número de remito actual: ' + e.remito + '\n\nIngresá el nuevo número:', e.remito);
-  if(!nuevo || nuevo.trim() === '' || nuevo.trim() === e.remito) return;
-  e.remito = nuevo.trim().toUpperCase();
-  await saveOC(oc);
-  renderDetalle(oc);
-  toast('Remito renombrado a ' + e.remito, 'success');
-}
-
-// ===== ELIMINAR REMITO =====
-async function eliminarRemito(ocId, entregaId) {
-  const oc = state.ocs.find(o => o.id === ocId);
-  if(!oc) return;
-  const e = (oc.entregas || []).find(x => x.id === entregaId);
-  if(!e) return;
-  if(!confirm('¿Eliminar el remito ' + e.remito + '?\nEsta acción no se puede deshacer.')) return;
-  oc.entregas = oc.entregas.filter(x => x.id !== entregaId);
-  await saveOC(oc);
-  renderDetalle(oc);
-  toast('Remito ' + e.remito + ' eliminado', 'success');
 }
 
 // ===== IMPRIMIR REMITO PDF =====
