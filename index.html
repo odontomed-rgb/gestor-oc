@@ -461,7 +461,7 @@ function verDetalle(id){state.currentOC=id;showPage('detalle');document.getEleme
 function renderDetalle(oc){
   if(!oc)return;
   const c=calcOC(oc),isCerrada=oc.estado==='cerrada',pendN=(oc.pendingItems||[]).length;
-  const rH=(oc.renglones||[]).map(r=>{const e=getEnt(oc,r.id),f=Math.max(0,(r.cantidad||0)-e);
+  const rH=(oc.renglones||[]).slice().sort((a,b)=>Number(a.numero)-Number(b.numero)).map(r=>{const e=getEnt(oc,r.id),f=Math.max(0,(r.cantidad||0)-e);
     return'<tr><td style="font-size:11px;color:var(--text-muted)">'+r.numero+'</td><td>'+r.producto+'</td><td><span class="ptag">'+(r.proveedor||'-')+'</span></td><td>'+fN(r.cantidad)+'</td><td>'+fN(e)+'</td><td style="color:'+(f>0?'var(--od-orange)':'#16A34A')+';font-weight:'+(f>0?600:400)+'">'+fN(f)+'</td><td>'+(f<=0?'<span class="badge green">OK</span>':e>0?'<span class="badge amber">Parcial</span>':'<span class="badge red">Pendiente</span>')+'</td></tr>';}).join('');
   const eH=(oc.entregas||[]).length?(oc.entregas||[]).map(e=>{
     const fac=(oc.facturas||[]).some(f=>(f.remitos||[]).includes(e.remito));
@@ -775,7 +775,7 @@ function openEntrega(ocId){
   document.getElementById('ment-ocnum').textContent=oc.numero;
   document.getElementById('ment-remito').value='';
   document.getElementById('ment-fecha').value=new Date().toISOString().slice(0,10);
-  document.getElementById('ment-tbody').innerHTML=(oc.renglones||[]).map(r=>{const e=getEnt(oc,r.id),f=Math.max(0,(r.cantidad||0)-e);return'<tr><td style="font-size:11px">'+r.numero+'</td><td style="font-size:12px">'+r.producto+'</td><td style="color:'+(f>0?'var(--od-orange)':'var(--text-muted)')+'">'+ fN(f)+'</td><td><input type="number" min="0" style="width:70px" id="eq-'+r.id+'" value="0"></td><td><input type="text" style="width:90px;font-size:11px" id="lot-'+r.id+'" placeholder="Lote"></td><td><input type="text" style="width:90px;font-size:11px" id="ven-'+r.id+'" placeholder="Vencim."></td><td><input type="text" style="width:130px;font-size:11px" id="obs-'+r.id+'" placeholder="Observaciones"></td></tr>';}).join('');
+  document.getElementById('ment-tbody').innerHTML=(oc.renglones||[]).slice().sort((a,b)=>Number(a.numero)-Number(b.numero)).map(r=>{const e=getEnt(oc,r.id),f=Math.max(0,(r.cantidad||0)-e);return'<tr><td style="font-size:11px">'+r.numero+'</td><td style="font-size:12px">'+r.producto+'</td><td style="color:'+(f>0?'var(--od-orange)':'var(--text-muted)')+'">'+ fN(f)+'</td><td><input type="number" min="0" style="width:70px" id="eq-'+r.id+'" value="0"></td><td><input type="text" style="width:90px;font-size:11px" id="lot-'+r.id+'" placeholder="Lote"></td><td><input type="text" style="width:90px;font-size:11px" id="ven-'+r.id+'" placeholder="Vencim."></td><td><input type="text" style="width:130px;font-size:11px" id="obs-'+r.id+'" placeholder="Observaciones"></td></tr>';}).join('');
   openModal('modal-entrega');
 }
 async function guardarEntrega(){
