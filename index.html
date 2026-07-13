@@ -189,7 +189,7 @@ tr:hover td{background:#FAFAFA}
   <div class="form-grid">
     <div class="form-row"><label class="form-label">N° OC</label><input id="moc-num" placeholder="ej: 26018266"></div>
     <div class="form-row"><label class="form-label">Organismo</label><select id="moc-org"><option>Ministerio MSP</option><option>Hospital San Bernardo</option><option>Hospital Materno Infantil</option><option>Hospital Oñativia</option></select></div>
-    <div class="form-row"><label class="form-label">Licitación</label><select id="moc-lp"><option>LP07/25</option><option>LP07/24</option></select></div>
+    <div class="form-row"><label class="form-label">Licitación</label><select id="moc-lp" onchange="if(document.querySelector('#modal-oc .modal-title').textContent==='Nueva orden de compra')precargarRenglones(this.value)"><option>LP07/25</option><option>LP07/24</option></select></div>
     <div class="form-row"><label class="form-label">Fecha</label><input type="date" id="moc-fecha"></div>
   </div>
   <div class="form-row"><label class="form-label">Notas</label><textarea id="moc-notas" rows="2"></textarea></div>
@@ -363,13 +363,11 @@ function showPage(id){
 function renderCurrentPage(){showPage(state.currentPage);}
 function renderAll(){updateBadge();renderDash();}
 
-function sortOCs(arr){return arr.sort((a,b)=>{const fa=a.fecha||'',fb=b.fecha||'';if(fa&&fb)return fb.localeCompare(fa);if(fa)return -1;if(fb)return 1;return Number(a.numero)-Number(b.numero);});}
-
 // ===== DASHBOARD =====
 function renderDash(){
   updateBadge();
   const org=getOrg();
-  const ocs=sortOCs(state.ocs.filter(o=>o.estado!=='cerrada'&&(!org||o.organismo===org)));
+  const ocs=state.ocs.filter(o=>o.estado!=='cerrada'&&(!org||o.organismo===org));
   let tM=0,tE=0,tF=0;
   ocs.forEach(o=>{const c=calcOC(o);tM+=c.montoOC;tE+=c.totalEnt;tF+=c.totalFac;});
   const pend=countPending();
@@ -399,7 +397,7 @@ function renderOCs(){
   const lp=document.getElementById('fo-lp')?.value||'';
   const est=document.getElementById('fo-est')?.value||'';
   const bus=(document.getElementById('fo-bus')?.value||'').toLowerCase();
-  const ocs=sortOCs(state.ocs.filter(o=>(!org||o.organismo===org)&&(!lp||o.licitacion===lp)&&(!est||o.estado===est||(!o.estado&&est==='activa'))&&(!bus||o.numero.includes(bus))));
+  const ocs=state.ocs.filter(o=>(!org||o.organismo===org)&&(!lp||o.licitacion===lp)&&(!est||o.estado===est||(!o.estado&&est==='activa'))&&(!bus||o.numero.includes(bus)));
   const tb=document.getElementById('ocs-tbody');
   if(!ocs.length){tb.innerHTML='<tr><td colspan="9"><div class="empty"><i class="ti ti-file-invoice"></i>Sin OCs</div></td></tr>';return;}
   tb.innerHTML=ocs.map(o=>{const c=calcOC(o);return'<tr>'+
@@ -627,10 +625,27 @@ function openNuevaOC(){
   rcnt=0;
   ['moc-num','moc-notas'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('moc-fecha').value=new Date().toISOString().slice(0,10);
+  document.getElementById('moc-org').value='Ministerio MSP';
+  document.getElementById('moc-lp').value='LP07/25';
   document.getElementById('moc-rngl').innerHTML='';
   document.querySelector('#modal-oc .modal-title').textContent='Nueva orden de compra';
   document.querySelector('#modal-oc .btn.primary').onclick=guardarOC;
-  addRenglon();openModal('modal-oc');
+  precargarRenglones('LP07/25');
+  openModal('modal-oc');
+}
+
+function precargarRenglones(licitacion){
+  document.getElementById('moc-rngl').innerHTML='';
+  rcnt=0;
+  const prods = getLPProductos(licitacion);
+  if(!prods.length){ addRenglon(); return; }
+  prods.forEach(p => addRenglon({
+    numero: String(p.renglon),
+    producto: p.producto,
+    proveedor: p.proveedor,
+    cantidad: '',
+    precio: p.precio
+  }));
 }
 
 function editarOC(id){
@@ -677,7 +692,7 @@ async function guardarEdicionOC(id){
     proveedor:tr.querySelector('[id^=rv-]')?.value||'',
     cantidad:parseFloat(tr.querySelector('[id^=rc-]')?.value)||0,
     precio:parseFloat(tr.querySelector('[id^=rpr-]')?.value)||0
-  })).filter(r=>r.producto).sort((a,b)=>Number(a.numero)-Number(b.numero));
+  })).filter(r=>r.producto);
   await saveOC(oc);closeModal('modal-oc');renderDetalle(oc);
   toast('OC '+oc.numero+' actualizada','success');
 }
@@ -702,7 +717,7 @@ function addRenglon(d){
 async function guardarOC(){
   const num=document.getElementById('moc-num').value.trim();if(!num){alert('Ingresá el N° de OC');return;}
   const rows=[...document.getElementById('moc-rngl').querySelectorAll('tr')];
-  const renglones=rows.map(tr=>({id:tr.dataset.oid,numero:tr.querySelector('[id^=rn-]')?.value||'',producto:tr.querySelector('[id^=rp-]')?.value||'',proveedor:tr.querySelector('[id^=rv-]')?.value||'',cantidad:parseFloat(tr.querySelector('[id^=rc-]')?.value)||0,precio:parseFloat(tr.querySelector('[id^=rpr-]')?.value)||0})).filter(r=>r.producto).sort((a,b)=>Number(a.numero)-Number(b.numero));
+  const renglones=rows.map(tr=>({id:tr.dataset.oid,numero:tr.querySelector('[id^=rn-]')?.value||'',producto:tr.querySelector('[id^=rp-]')?.value||'',proveedor:tr.querySelector('[id^=rv-]')?.value||'',cantidad:parseFloat(tr.querySelector('[id^=rc-]')?.value)||0,precio:parseFloat(tr.querySelector('[id^=rpr-]')?.value)||0})).filter(r=>r.producto&&r.cantidad>0).sort((a,b)=>Number(a.numero)-Number(b.numero));
   const oc={id:'oc'+Date.now(),numero:num,organismo:document.getElementById('moc-org').value,fecha:document.getElementById('moc-fecha').value,licitacion:document.getElementById('moc-lp').value,notas:document.getElementById('moc-notas').value,renglones,entregas:[],facturas:[],estado:'activa',pendingItems:[]};
   await saveOC(oc);closeModal('modal-oc');
 }
@@ -944,6 +959,17 @@ function imprimirRemito(ocId, entregaId) {
   const win = window.open('', '_blank');
   win.document.write(html);
   win.document.close();
+}
+
+
+// ===== PRODUCTOS LP (base para nueva OC) =====
+const LP_PRODUCTOS = [{"lic": "7/24", "renglon": 1, "producto": "AGUJAS NIPRO JAPON 30G x21mm CORTAS x100 descartables", "proveedor": "Medrano", "precio": 31942.05}, {"lic": "7/24", "renglon": 2, "producto": "Acido Grabador GEL ETCH LV37% 12G Jeringa GREEN verde envase economico", "proveedor": "Medrano", "precio": 20388.54}, {"lic": "7/24", "renglon": 3, "producto": "ADHESIVO MONOBOND 5ML Concentrado", "proveedor": "Medrano", "precio": 49272.31}, {"lic": "7/24", "renglon": 4, "producto": "UltraFill OA2 MD", "proveedor": "Dentsply", "precio": 29733.29}, {"lic": "7/24", "renglon": 5, "producto": "UltraFill OA3 MD", "proveedor": "Dentsply", "precio": 29733.29}, {"lic": "7/24", "renglon": 6, "producto": "IONOMERO DENSELL Tipo 2 avio 10g+8ml Restauracion", "proveedor": "Medrano", "precio": 93277.58}, {"lic": "7/25", "renglon": 1, "producto": "Aceite libricante en aerosol 910 ml KMD", "proveedor": "Mecadent", "precio": 24539.51}, {"lic": "7/25", "renglon": 2, "producto": "Agujas p/Carpule Intermedias caja x 100 (30G x 25 mm) Nipro", "proveedor": "Medrano", "precio": 32804.69}, {"lic": "7/25", "renglon": 3, "producto": "Agujas p/sutura 1/2 circulo quirúrgica nylon 4.0 caja x 12 unidades. Keeper", "proveedor": "Munta", "precio": 60758.24}, {"lic": "7/25", "renglon": 4, "producto": "Cariostatico  Fluorsilver 5ml Densell", "proveedor": "Medrano", "precio": 38055.92}, {"lic": "7/25", "renglon": 5, "producto": "Hidroxido de Calcio Pasta Pasta 13gr+11gr Densell", "proveedor": "Medrano", "precio": 30575.96}, {"lic": "7/25", "renglon": 6, "producto": "Endo G-Fill Grossman 20gr+10ml Densell", "proveedor": "Medrano", "precio": 28476.33}, {"lic": "7/25", "renglon": 7, "producto": "Cepillo dental p/niño Cabezal 2,5x1cm con 26 agujeros, largo total 14cm IBC", "proveedor": "IBC", "precio": 852.98}, {"lic": "7/25", "renglon": 8, "producto": "Tiras de Celuloide /Polyester 10x 0,05mm x100 tiritas Microdont", "proveedor": "Megadental", "precio": 8661.0}, {"lic": "7/25", "renglon": 9, "producto": "Banda matriz de acero 5mm x 7mm x 3m Microdont", "proveedor": "Megadental", "precio": 14172.55}, {"lic": "7/25", "renglon": 10, "producto": "Tiras para pulir composite 2,5mm x 100u Microdont", "proveedor": "Megadental", "precio": 16665.87}, {"lic": "7/25", "renglon": 11, "producto": "Compresas descartables x 50 Unid. Ultra", "proveedor": "Megadental", "precio": 7217.5}, {"lic": "7/25", "renglon": 12, "producto": "Conos de Gutapercha 1º Serie 15/40  Meta.", "proveedor": "Megadental", "precio": 14238.16}, {"lic": "7/25", "renglon": 13, "producto": "Conos de Gutapercha Accesorios FF Meta", "proveedor": "Megadental", "precio": 14238.16}, {"lic": "7/25", "renglon": 14, "producto": "Conos de Gutapercha Accesorios FM Meta", "proveedor": "Megadental", "precio": 14238.16}, {"lic": "7/25", "renglon": 15, "producto": "Conos de Gutapercha Accesorios M Meta", "proveedor": "Megadental", "precio": 14238.16}, {"lic": "7/25", "renglon": 16, "producto": "Conos de Gutapercha Accesorios MF Meta", "proveedor": "Megadental", "precio": 14238.16}, {"lic": "7/25", "renglon": 17, "producto": "Conos de Gutapercha N° 30 Meta", "proveedor": "Megadental", "precio": 14238.16}, {"lic": "7/25", "renglon": 18, "producto": "Conos de Gutapercha N° 35 Meta", "proveedor": "Megadental", "precio": 14238.16}, {"lic": "7/25", "renglon": 19, "producto": "Conos de Gutapercha Nº 15 Meta", "proveedor": "Megadental", "precio": 14238.16}, {"lic": "7/25", "renglon": 20, "producto": "Conos de Gutapercha Nº 20 Meta", "proveedor": "Megadental", "precio": 14238.16}, {"lic": "7/25", "renglon": 21, "producto": "Conos de Gutapercha Nº 25 Meta", "proveedor": "Megadental", "precio": 14238.16}, {"lic": "7/25", "renglon": 22, "producto": "Conos de Papel 1º Serie x 25 mm. Meta", "proveedor": "Megadental", "precio": 10760.64}, {"lic": "7/25", "renglon": 23, "producto": "Cuñas de Madera x 100 Unidades Densell", "proveedor": "Medrano", "precio": 25851.78}, {"lic": "7/25", "renglon": 24, "producto": "EDTA-C Ensanchador Químico Endo 15ml Densell", "proveedor": "Medrano", "precio": 12466.59}, {"lic": "7/25", "renglon": 25, "producto": "Elevador apical  recto punta fina Belkys", "proveedor": "Poquet", "precio": 20077.78}, {"lic": "7/25", "renglon": 26, "producto": "Espaciadores digitales Spreaders x 6  unidades  1° Serie Rogin", "proveedor": "Megadental", "precio": 11416.78}, {"lic": "7/25", "renglon": 27, "producto": "Espatula para resina doble Belkys", "proveedor": "Poquet", "precio": 30707.19}, {"lic": "7/25", "renglon": 28, "producto": "Espejos bucales x 12 Unidades Belkys", "proveedor": "Poquet", "precio": 25458.1}, {"lic": "7/25", "renglon": 29, "producto": "Eugenol Puro x 20 mm Densell", "proveedor": "Medrano", "precio": 16272.19}, {"lic": "7/25", "renglon": 30, "producto": "Explorador Belkys", "proveedor": "Poquet", "precio": 5774.0}, {"lic": "7/25", "renglon": 31, "producto": "Eyectores p/saliva x 100 Unidades Easydent", "proveedor": "Medrano", "precio": 10498.18}, {"lic": "7/25", "renglon": 32, "producto": "Flúor p/Topicaciones x 200cc Acidulado Densell", "proveedor": "Medrano", "precio": 18765.51}, {"lic": "7/25", "renglon": 33, "producto": "Flúor p/Topicaciones x 200cc PHNeutro Densell", "proveedor": "Medrano", "precio": 18765.51}, {"lic": "7/25", "renglon": 34, "producto": "Forceps raiz inferior Belkys", "proveedor": "Poquet", "precio": 33856.65}, {"lic": "7/25", "renglon": 35, "producto": "Forceps raiz superior Belkys", "proveedor": "Poquet", "precio": 33856.65}, {"lic": "7/25", "renglon": 36, "producto": "Fresa extralarga cilindrica N° 557 p/turbina Jet", "proveedor": "Megadental", "precio": 9579.59}, {"lic": "7/25", "renglon": 37, "producto": "Fresa p/Contaángulo redonda grande N° 5 Jet", "proveedor": "Megadental", "precio": 5117.87}, {"lic": "7/25", "renglon": 38, "producto": "Fresa p/Contraángulo redonda mediana N° 4 Jet", "proveedor": "Megadental", "precio": 5117.87}, {"lic": "7/25", "renglon": 39, "producto": "Fresa p/Contraángulo redonda pequeña N° 3 Jet", "proveedor": "Megadental", "precio": 5117.87}, {"lic": "7/25", "renglon": 40, "producto": "Fresa p/Turbina redonda N° 4 Jet", "proveedor": "Megadental", "precio": 4592.96}, {"lic": "7/25", "renglon": 41, "producto": "Fresa p/Turbina redonda N° 5 Jet", "proveedor": "Megadental", "precio": 4592.96}, {"lic": "7/25", "renglon": 42, "producto": "Fresa p/Turbina redonda N° 6  Jet", "proveedor": "Megadental", "precio": 4592.96}, {"lic": "7/25", "renglon": 43, "producto": "Fresa XL redonda N° 4 p/turbina Jet", "proveedor": "Megadental", "precio": 9579.59}, {"lic": "7/25", "renglon": 44, "producto": "Goma Dique 6 X 6 X 36 Unidades Densell", "proveedor": "Medrano", "precio": 32413.15}, {"lic": "7/25", "renglon": 45, "producto": "Restaurador Temporario Frasco 40gr Densell", "proveedor": "Medrano", "precio": 20340.23}, {"lic": "7/25", "renglon": 46, "producto": "Cemento Zoer Reforzado Avio 40gr+15ml Densell", "proveedor": "Medrano", "precio": 55640.38}, {"lic": "7/25", "renglon": 47, "producto": "Iodoformo Purisimo x 10 Grs. Densell", "proveedor": "Medrano", "precio": 19684.1}, {"lic": "7/25", "renglon": 48, "producto": "Ionomero MPLC 2 Restauración Foto 10gr+6ml Densell", "proveedor": "Medrano", "precio": 120729.12}, {"lic": "7/25", "renglon": 49, "producto": "Lima  p/Endodoncia \"K\" N° 10   25mm  Maillefer", "proveedor": "Dentsply", "precio": 33462.96}, {"lic": "7/25", "renglon": 50, "producto": "Lima  p/Endodoncia \"K\" N° 15   25mm  Maillefer", "proveedor": "Dentsply", "precio": 33462.96}, {"lic": "7/25", "renglon": 51, "producto": "Lima  p/Endodoncia 1º Serie 15/40   25mm  Maillefer", "proveedor": "Dentsply", "precio": 33462.96}, {"lic": "7/25", "renglon": 52, "producto": "Lima  p/Endodoncia Flexibles N° 20   25mm  Maillefer", "proveedor": "Dentsply", "precio": 33462.96}, {"lic": "7/25", "renglon": 53, "producto": "Lima  p/Endodoncia Flexibles N° 25   25mm Maillefer", "proveedor": "Dentsply", "precio": 33462.96}, {"lic": "7/25", "renglon": 54, "producto": "Liquido Fijador RX x 500 ml. Romek", "proveedor": "Romek", "precio": 13122.73}, {"lic": "7/25", "renglon": 55, "producto": "Liquido Revelador RX x 500 ml. Romek", "proveedor": "Romek", "precio": 19552.87}, {"lic": "7/25", "renglon": 56, "producto": "Microaplicador Descartables x 100 Un.", "proveedor": "Poquet", "precio": 8792.23}, {"lic": "7/25", "renglon": 57, "producto": "Pasta Lentamente Reabsorbible Maisto - Densa 20gr Densell", "proveedor": "Farmadental", "precio": 23358.46}, {"lic": "7/25", "renglon": 58, "producto": "Piedras de Diamante p/Turbin cilíndrica punta plana N° 1091 Microdont", "proveedor": "Megadental", "precio": 3805.59}, {"lic": "7/25", "renglon": 59, "producto": "Piedras de Diamante p/Turbina p/Pulir composite N° 3118 EF (flama)  Microdont", "proveedor": "Megadental", "precio": 3805.59}, {"lic": "7/25", "renglon": 60, "producto": "Piedras de Diamante p/Turbina p/Pulir composite N° 3195 EF Microdont", "proveedor": "Megadental", "precio": 3805.59}, {"lic": "7/25", "renglon": 61, "producto": "Piedras de Diamante p/Turbina redondas Nº 1014 Microdont", "proveedor": "Megadental", "precio": 3805.59}, {"lic": "7/25", "renglon": 62, "producto": "Piedras de Diamante p/Turbina redondas Nº 1016 Microdont", "proveedor": "Megadental", "precio": 3805.59}, {"lic": "7/25", "renglon": 63, "producto": "Piedras de Diamante p/Turbina Tronco cónica Nº 2135 Microdont", "proveedor": "Megadental", "precio": 3805.59}, {"lic": "7/25", "renglon": 64, "producto": "Pinza para Algodón Belkys", "proveedor": "Poquet", "precio": 7348.73}, {"lic": "7/25", "renglon": 65, "producto": "Placas Radiográficas Periapicales D-Speed p/Adultos x 100 u Carestream", "proveedor": "Kodent", "precio": 85297.75}, {"lic": "7/25", "renglon": 66, "producto": "Resina UltraFlow Jeringa 2gr Color A2", "proveedor": "Dentsply", "precio": 31232.1}, {"lic": "7/25", "renglon": 67, "producto": "Resina UltraFlow Jeringa 2gr Color A3", "proveedor": "Dentsply", "precio": 31232.1}, {"lic": "7/25", "renglon": 68, "producto": "Resina p/Fotocurado UltraFill 4gr Color A1", "proveedor": "Megadental", "precio": 30536.28}, {"lic": "7/25", "renglon": 69, "producto": "Resina p/Fotocurado UltraFill 4gr Color A2", "proveedor": "Megadental", "precio": 30536.28}, {"lic": "7/25", "renglon": 70, "producto": "Sealant P&F White con Fluor - Jeringa 1,5gr Fotocurado Densell", "proveedor": "Medrano", "precio": 24014.6}, {"lic": "7/25", "renglon": 71, "producto": "Sindesmótomos Curvos Bekys", "proveedor": "Poquet", "precio": 6692.59}, {"lic": "7/25", "renglon": 72, "producto": "Sindesmótomos Rectos Bekys", "proveedor": "Poquet", "precio": 6692.59}, {"lic": "7/25", "renglon": 73, "producto": "Tijera para cirugia curva Bekys", "proveedor": "Poquet", "precio": 8529.78}, {"lic": "7/25", "renglon": 74, "producto": "Tijera para cirugia recta Bekys", "proveedor": "Poquet", "precio": 8529.78}];
+
+function getLPProductos(licitacion) {
+  // Normalizar: "LP07/25" → "7/25"
+  const m = (licitacion||'').match(/(\d+)\/(\d+)$/);
+  const lic = m ? (parseInt(m[1]) + '/' + m[2]) : licitacion;
+  return LP_PRODUCTOS.filter(p => p.lic === lic).sort((a,b) => a.renglon - b.renglon);
 }
 
 // ===== INIT =====
