@@ -147,7 +147,7 @@ tr:hover td{background:#FAFAFA}
 <div class="page active" id="page-dashboard">
   <div class="cards" id="dash-cards"></div>
   <div class="sec-title">OCs activas</div>
-  <div class="table-wrap"><table><thead><tr><th>N° OC</th><th>Organismo</th><th>LP</th><th>Monto OC</th><th>Entregado</th><th>Facturado</th><th>Estado</th><th></th></tr></thead><tbody id="dash-tbody"></tbody></table></div>
+  <div class="table-wrap"><table><thead id="dash-thead"><tr></tr></thead><tbody id="dash-tbody"></tbody></table></div>
 </div>
 
 <div class="page" id="page-ocs">
@@ -157,7 +157,7 @@ tr:hover td{background:#FAFAFA}
     <select id="fo-est" onchange="renderOCs()"><option value="">Todos los estados</option><option value="activa">Activas</option><option value="cerrada">Cerradas</option></select>
     <input type="text" id="fo-bus" placeholder="Buscar N° OC..." oninput="renderOCs()" style="width:150px">
   </div>
-  <div class="table-wrap"><table><thead><tr><th>N° OC</th><th>Organismo</th><th>LP</th><th>Fecha</th><th>Monto OC</th><th>Entregado</th><th>Facturado</th><th>Estado</th><th></th></tr></thead><tbody id="ocs-tbody"></tbody></table></div>
+  <div class="table-wrap"><table><thead id="ocs-thead"><tr></tr></thead><tbody id="ocs-tbody"></tbody></table></div>
 </div>
 
 <div class="page" id="page-detalle">
@@ -363,13 +363,58 @@ function showPage(id){
 function renderCurrentPage(){showPage(state.currentPage);}
 function renderAll(){updateBadge();renderDash();}
 
+
+// ===== SORT DE OCS =====
+let _ocSort = {col:'fecha', dir:-1}; // -1 = desc, 1 = asc
+function sortOCsBy(col){
+  if(_ocSort.col===col){_ocSort.dir*=-1;}else{_ocSort.col=col;_ocSort.dir=col==='fecha'||col==='monto'||col==='numero'?-1:1;}
+  renderDash();renderOCs();
+}
+function ocSortArrow(col){
+  if(_ocSort.col!==col)return'<span style="color:rgba(255,255,255,.3);font-size:9px"> ⬍</span>';
+  return _ocSort.dir===1?'<span style="font-size:9px"> ▲</span>':'<span style="font-size:9px"> ▼</span>';
+}
+function sortOCs(arr){
+  return arr.sort((a,b)=>{
+    const col=_ocSort.col, d=_ocSort.dir;
+    if(col==='numero')return d*(Number(a.numero)-Number(b.numero));
+    if(col==='fecha'){const fa=a.fecha||'',fb=b.fecha||'';return d*fa.localeCompare(fb);}
+    if(col==='monto'){return d*(calcOC(a).montoOC-calcOC(b).montoOC);}
+    if(col==='entregado'){return d*(calcOC(a).totalEnt-calcOC(b).totalEnt);}
+    if(col==='facturado'){return d*(calcOC(a).totalFac-calcOC(b).totalFac);}
+    if(col==='org')return d*(a.organismo||'').localeCompare(b.organismo||'');
+    if(col==='lp')return d*(a.licitacion||'').localeCompare(b.licitacion||'');
+    return 0;
+  });
+}
+
 // ===== DASHBOARD =====
+
+function renderOCsHeader(theadId, showFecha){
+  const th=(col,lbl,extra='')=>'<th style="cursor:pointer;user-select:none'+(extra?';'+extra:'')+'" onclick="sortOCsBy(\''+col+'\')">'+lbl+ocSortArrow(col)+'</th>';
+  const ths = [
+    th('numero','N° OC'),
+    th('org','Organismo'),
+    th('lp','LP'),
+    showFecha ? th('fecha','Fecha') : '',
+    th('monto','Monto OC','text-align:right'),
+    th('entregado','Entregado','text-align:right'),
+    th('facturado','Facturado','text-align:right'),
+    th('estado','Estado'),
+    '<th></th>'
+  ].filter(Boolean).join('');
+  const el=document.getElementById(theadId);
+  if(el) el.innerHTML='<tr>'+ths+'</tr>';
+}
+
 function renderDash(){
   updateBadge();
+  renderOCsHeader('dash-thead', false);
   const org=getOrg();
-  const ocs=state.ocs.filter(o=>o.estado!=='cerrada'&&(!org||o.organismo===org));
+  const ocsFiltradas=state.ocs.filter(o=>o.estado!=='cerrada'&&(!org||o.organismo===org));
+  const ocs=sortOCs(ocsFiltradas);
   let tM=0,tE=0,tF=0;
-  ocs.forEach(o=>{const c=calcOC(o);tM+=c.montoOC;tE+=c.totalEnt;tF+=c.totalFac;});
+  ocsFiltradas.forEach(o=>{const c=calcOC(o);tM+=c.montoOC;tE+=c.totalEnt;tF+=c.totalFac;});
   const pend=countPending();
   document.getElementById('dash-cards').innerHTML=
     '<div class="card ab"><div class="lbl">OCs activas</div><div class="val">'+ocs.length+'</div></div>'+
@@ -397,7 +442,8 @@ function renderOCs(){
   const lp=document.getElementById('fo-lp')?.value||'';
   const est=document.getElementById('fo-est')?.value||'';
   const bus=(document.getElementById('fo-bus')?.value||'').toLowerCase();
-  const ocs=state.ocs.filter(o=>(!org||o.organismo===org)&&(!lp||o.licitacion===lp)&&(!est||o.estado===est||(!o.estado&&est==='activa'))&&(!bus||o.numero.includes(bus)));
+  renderOCsHeader('ocs-thead', true);
+  const ocs=sortOCs(state.ocs.filter(o=>(!org||o.organismo===org)&&(!lp||o.licitacion===lp)&&(!est||o.estado===est||(!o.estado&&est==='activa'))&&(!bus||o.numero.includes(bus))));
   const tb=document.getElementById('ocs-tbody');
   if(!ocs.length){tb.innerHTML='<tr><td colspan="9"><div class="empty"><i class="ti ti-file-invoice"></i>Sin OCs</div></td></tr>';return;}
   tb.innerHTML=ocs.map(o=>{const c=calcOC(o);return'<tr>'+
