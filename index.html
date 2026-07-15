@@ -317,11 +317,12 @@ function toast(msg, type='') {
 function fmt(n){return Number(n||0).toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0});}
 function fN(n){return Number(n||0).toLocaleString('es-AR');}
 function pct(a,b){return b>0?Math.round(a/b*100):0;}
+function parseNum(v){if(typeof v==='number')return v;if(!v)return 0;return parseFloat(String(v).replace(/\./g,'').replace(',','.'))||0;}
 function calcOC(oc){
   const R=oc.renglones||[],E=oc.entregas||[],F=oc.facturas||[];
-  const montoOC=R.reduce((s,r)=>s+(r.cantidad||0)*(r.precio||0),0);
-  const totalEnt=R.reduce((s,r)=>{const e=E.reduce((a,en)=>a+(en.items||[]).reduce((b,i)=>i.renglon===r.id?b+(i.cantidad||0):b,0),0);return s+e*(r.precio||0);},0);
-  const totalFac=F.reduce((s,f)=>s+(f.monto||0),0);
+  const montoOC=R.reduce((s,r)=>s+parseNum(r.cantidad)*parseNum(r.precio),0);
+  const totalEnt=R.reduce((s,r)=>{const e=E.reduce((a,en)=>a+(en.items||[]).reduce((b,i)=>i.renglon===r.id?b+parseNum(i.cantidad):b,0),0);return s+e*parseNum(r.precio);},0);
+  const totalFac=F.reduce((s,f)=>s+parseNum(f.monto),0);
   return{montoOC,totalEnt,totalFac};
 }
 function getEnt(oc,rid){return(oc.entregas||[]).reduce((s,e)=>s+(e.items||[]).reduce((b,i)=>i.renglon===rid?b+(i.cantidad||0):b,0),0);}
@@ -487,12 +488,48 @@ function renderDetalle(oc){
     '<div class="detail-card" style="border-left:3px solid var(--od-orange)"><div class="dl">Pend. entrega</div><div class="dv" style="color:var(--od-orange)">'+fmt(Math.max(0,c.montoOC-c.totalEnt))+'</div></div>'+
     '<div class="detail-card"><div class="dl">Pend. facturar</div><div class="dv" style="color:#B45309">'+fmt(Math.max(0,c.totalEnt-c.totalFac))+'</div></div>'+
     '</div>'+
-    '<div class="tabs"><button class="tab active" onclick="switchTab(this,\'tp-r\')">Renglones ('+(oc.renglones||[]).length+')</button><button class="tab" onclick="switchTab(this,\'tp-e\')">Entregas ('+(oc.entregas||[]).length+')</button><button class="tab" onclick="switchTab(this,\'tp-f\')">Facturas ('+(oc.facturas||[]).length+')</button></div>'+
+    '<div class="tabs"><button class="tab active" onclick="switchTab(this,\'tp-r\')">Renglones ('+(oc.renglones||[]).length+')</button><button class="tab" onclick="switchTab(this,\'tp-e\')">Entregas ('+(oc.entregas||[]).length+')</button><button class="tab" onclick="switchTab(this,\'tp-f\')">Facturas ('+(oc.facturas||[]).length+')</button><button class="tab" onclick="switchTab(this,\'tp-c\')">💰 Cotejo</button></div>'+
     '<div class="tab-pane active" id="tp-r"><div class="table-wrap"><table><thead><tr><th>R°</th><th>Producto</th><th>Proveedor</th><th>Pedido</th><th>Entregado</th><th>Falta</th><th>Estado</th></tr></thead><tbody>'+rH+'</tbody></table></div></div>'+
     '<div class="tab-pane" id="tp-e">'+eH+'</div>'+
-    '<div class="tab-pane" id="tp-f">'+fH+'</div>';
+    '<div class="tab-pane" id="tp-f">'+fH+'</div>'+
+    '<div class="tab-pane" id="tp-c">'+renderCotejo(oc)+'</div>';
 }
 function switchTab(btn,pid){const c=btn.closest('.page');c.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));c.querySelectorAll('.tab-pane').forEach(t=>t.classList.remove('active'));btn.classList.add('active');const p=document.getElementById(pid);if(p)p.classList.add('active');}
+
+function renderCotejo(oc){
+  const renglones=(oc.renglones||[]).slice().sort((a,b)=>Number(a.numero)-Number(b.numero));
+  if(!renglones.length) return '<div class="empty"><i class="ti ti-calculator"></i>Sin renglones</div>';
+  let totalOC=0;
+  const filas=renglones.map(r=>{
+    const cant=parseNum(r.cantidad);
+    const precio=parseNum(r.precio);
+    const subtotal=cant*precio;
+    totalOC+=subtotal;
+    return '<tr>'+
+      '<td style="text-align:center;color:var(--text-muted);font-size:12px">'+r.numero+'</td>'+
+      '<td style="font-size:12px">'+r.producto+'</td>'+
+      '<td style="font-size:12px"><span class="ptag">'+(r.proveedor||'-')+'</span></td>'+
+      '<td style="text-align:right;font-size:12px">'+fN(cant)+'</td>'+
+      '<td style="text-align:right;font-size:12px">'+fmt(precio)+'</td>'+
+      '<td style="text-align:right;font-weight:600;color:var(--od-blue)">'+fmt(subtotal)+'</td>'+
+      '</tr>';
+  }).join('');
+  return '<div class="table-wrap" style="overflow-x:auto"><table>'+
+    '<thead><tr>'+
+    '<th style="text-align:center;width:50px">R°</th>'+
+    '<th>Producto</th>'+
+    '<th>Proveedor</th>'+
+    '<th style="text-align:right;width:70px">Cant.</th>'+
+    '<th style="text-align:right;width:110px">Precio u.</th>'+
+    '<th style="text-align:right;width:130px">Subtotal</th>'+
+    '</tr></thead>'+
+    '<tbody>'+filas+'</tbody>'+
+    '<tfoot><tr style="background:var(--od-blue-light);font-weight:700">'+
+    '<td colspan="5" style="text-align:right;padding:10px 12px;font-size:13px;color:var(--od-blue)">TOTAL CALCULADO</td>'+
+    '<td style="text-align:right;padding:10px 12px;font-size:15px;color:var(--od-blue)">'+fmt(totalOC)+'</td>'+
+    '</tr></tfoot>'+
+    '</table></div>';
+}
 
 // ===== PENDIENTES =====
 let _pendSort={col:"oc",dir:1};
