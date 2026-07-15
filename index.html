@@ -314,7 +314,8 @@ function toast(msg, type='') {
 }
 
 // ===== HELPERS =====
-function fmt(n){return Number(n||0).toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0});}
+function fmt(n){return Number(n||0).toLocaleString('es-AR',{style:'currency',currency:'ARS',minimumFractionDigits:2,maximumFractionDigits:2});}
+function fmt2(n){return fmt(n);}
 function fN(n){return Number(n||0).toLocaleString('es-AR');}
 function pct(a,b){return b>0?Math.round(a/b*100):0;}
 function parseNum(v){if(typeof v==='number')return v;if(!v)return 0;return parseFloat(String(v).replace(/\./g,'').replace(',','.'))||0;}
@@ -510,8 +511,8 @@ function renderCotejo(oc){
       '<td style="font-size:12px">'+r.producto+'</td>'+
       '<td style="font-size:12px"><span class="ptag">'+(r.proveedor||'-')+'</span></td>'+
       '<td style="text-align:right;font-size:12px">'+fN(cant)+'</td>'+
-      '<td style="text-align:right;font-size:12px">'+fmt(precio)+'</td>'+
-      '<td style="text-align:right;font-weight:600;color:var(--od-blue)">'+fmt(subtotal)+'</td>'+
+      '<td style="text-align:right;font-size:12px">'+fmt2(precio)+'</td>'+
+      '<td style="text-align:right;font-weight:600;color:var(--od-blue)">'+fmt2(subtotal)+'</td>'+
       '</tr>';
   }).join('');
   return '<div class="table-wrap" style="overflow-x:auto"><table>'+
@@ -526,7 +527,7 @@ function renderCotejo(oc){
     '<tbody>'+filas+'</tbody>'+
     '<tfoot><tr style="background:var(--od-blue-light);font-weight:700">'+
     '<td colspan="5" style="text-align:right;padding:10px 12px;font-size:13px;color:var(--od-blue)">TOTAL CALCULADO</td>'+
-    '<td style="text-align:right;padding:10px 12px;font-size:15px;color:var(--od-blue)">'+fmt(totalOC)+'</td>'+
+    '<td style="text-align:right;padding:10px 12px;font-size:15px;color:var(--od-blue)">'+fmt2(totalOC)+'</td>'+
     '</tr></tfoot>'+
     '</table></div>';
 }
