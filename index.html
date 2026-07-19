@@ -270,7 +270,8 @@ function setSyncDot(status) {
 async function saveOC(oc) {
   setSyncDot('syncing');
   try {
-    const key = oc.id.replace(/[.#$[\]]/g, '_');
+    const key = oc.id.replace(/[.#$[\]\/]/g, '_');
+    oc.id = key; // Asegurar que el id interno coincide con la key
     await ref.child(key).set(oc);
     setSyncDot('ok');
     toast('Guardado ✓', 'success');
@@ -281,7 +282,7 @@ async function saveOC(oc) {
 }
 
 async function deleteOC(id) {
-  const key = id.replace(/[.#$[\]]/g, '_');
+  const key = id.replace(/[.#$[\]\/]/g, '_');
   await ref.child(key).remove();
 }
 
@@ -290,13 +291,12 @@ function initFirebase() {
   ref.on('value', snap => {
     const data = snap.val();
     if (data) {
-      // Asegurar que cada OC tenga su id como campo interno
+      // Garantizar que el id interno de cada OC coincide con su key en Firebase
       state.ocs = Object.entries(data).map(([key, oc]) => {
-        if(!oc.id) oc.id = key;
+        oc.id = key;
         return oc;
       });
     } else if (!state.loaded) {
-      // Primera vez: cargar seed
       OCS_SEED.forEach(oc => saveOC(oc));
       state.ocs = JSON.parse(JSON.stringify(OCS_SEED));
     }
