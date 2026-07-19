@@ -290,7 +290,11 @@ function initFirebase() {
   ref.on('value', snap => {
     const data = snap.val();
     if (data) {
-      state.ocs = Object.values(data);
+      // Asegurar que cada OC tenga su id como campo interno
+      state.ocs = Object.entries(data).map(([key, oc]) => {
+        if(!oc.id) oc.id = key;
+        return oc;
+      });
     } else if (!state.loaded) {
       // Primera vez: cargar seed
       OCS_SEED.forEach(oc => saveOC(oc));
