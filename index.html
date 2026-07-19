@@ -466,10 +466,10 @@ function renderDetalle(oc){
   const rH=(oc.renglones||[]).slice().sort((a,b)=>Number(a.numero)-Number(b.numero)).map(r=>{const e=getEnt(oc,r.id),f=Math.max(0,(r.cantidad||0)-e);
     return'<tr><td style="font-size:11px;color:var(--text-muted)">'+r.numero+'</td><td>'+r.producto+'</td><td><span class="ptag">'+(r.proveedor||'-')+'</span></td><td>'+fN(r.cantidad)+'</td><td>'+fN(e)+'</td><td style="color:'+(f>0?'var(--od-orange)':'#16A34A')+';font-weight:'+(f>0?600:400)+'">'+fN(f)+'</td><td>'+(f<=0?'<span class="badge green">OK</span>':e>0?'<span class="badge amber">Parcial</span>':'<span class="badge red">Pendiente</span>')+'</td></tr>';}).join('');
   const eH=(oc.entregas||[]).length?(oc.entregas||[]).map(e=>{
-    const fac=(oc.facturas||[]).some(f=>(f.remitos||[]).includes(e.remito));
+    const fac=(oc.facturas||[]).some(f=>remitosCoinciden(e.remito,f.remitos));
     const items=(e.items||[]).filter(i=>i.cantidad>0).map(i=>{const r=(oc.renglones||[]).find(x=>x.id===i.renglon);return r?r.producto+': '+fN(i.cantidad)+' u.':''}).filter(Boolean).join(' · ');
-    return'<div class="ent-card '+(fac?'fac':'')+'"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><div><strong style="color:var(--od-blue)">Remito '+e.remito+'</strong> <span style="font-size:12px;color:var(--text-muted)">'+(e.fecha||'')+'</span></div><div style="display:flex;gap:6px;align-items:center">'+(fac?'<span class="badge green">Facturado</span>':'<span class="badge orange">Sin facturar</span>')+'<button class="btn sm" onclick="imprimirRemito(\''+oc.id+'\',\''+e.id+'\')" style="font-size:11px"><i class="ti ti-printer"></i> PDF</button></div></div><div style="font-size:12px;color:var(--text-muted)">'+(items||'Sin ítems')+'</div></div>';}).join(''):'<div class="empty"><i class="ti ti-truck"></i>Sin entregas</div>';
-  const fH=(oc.facturas||[]).length?(oc.facturas||[]).map(f=>'<div class="fac-card"><div style="display:flex;justify-content:space-between"><div><strong style="color:var(--od-blue)">Fac. '+f.numero+'</strong> <span style="font-size:12px;color:var(--text-muted)">'+(f.fecha||'')+'</span></div><div style="font-weight:600">'+fmt(f.monto)+'</div></div><div style="font-size:12px;color:var(--text-muted);margin-top:2px">Remitos: '+((f.remitos||[]).join(', ')||'-')+'</div></div>').join(''):'<div class="empty"><i class="ti ti-file-invoice"></i>Sin facturas</div>';
+    return'<div class="ent-card '+(fac?'fac':'')+'"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><div><strong style="color:var(--od-blue)">Remito '+e.remito+'</strong> <span style="font-size:12px;color:var(--text-muted)">'+(e.fecha||'')+'</span></div><div style="display:flex;gap:6px;align-items:center">'+(fac?'<span class="badge green">Facturado</span>':'<span class="badge orange">Sin facturar</span>')+'<button class="btn sm" onclick="editarNumeroRemito(\''+oc.id+'\',\''+e.id+'\')" style="font-size:11px" title="Editar"><i class="ti ti-pencil"></i></button><button class="btn sm" onclick="imprimirRemito(\''+oc.id+'\',\''+e.id+'\')" style="font-size:11px"><i class="ti ti-printer"></i> PDF</button><button class="btn sm danger" onclick="eliminarRemito(\''+oc.id+'\',\''+e.id+'\')" style="font-size:11px"><i class="ti ti-trash"></i></button></div></div><div style="font-size:12px;color:var(--text-muted)">'+(items||'Sin ítems')+'</div></div>';}).join(''):'<div class="empty"><i class="ti ti-truck"></i>Sin entregas</div>';
+  const fH=(oc.facturas||[]).length?(oc.facturas||[]).map(f=>'<div class="fac-card"><div style="display:flex;justify-content:space-between;align-items:center"><div><strong style="color:var(--od-blue)">Fac. '+f.numero+'</strong> <span style="font-size:12px;color:var(--text-muted)">'+(f.fecha||'')+'</span></div><div style="display:flex;align-items:center;gap:8px"><span style="font-weight:600">'+fmt(f.monto)+'</span><button class="btn sm" onclick="editarFactura(\''+oc.id+'\',\''+f.id+'\')" style="font-size:11px" title="Editar"><i class="ti ti-pencil"></i></button><button class="btn sm danger" onclick="eliminarFactura(\''+oc.id+'\',\''+f.id+'\')" style="font-size:11px"><i class="ti ti-trash"></i></button></div></div><div style="font-size:12px;color:var(--text-muted);margin-top:2px">Remitos: '+((f.remitos||[]).join(', ')||'-')+'</div></div>').join(''):'<div class="empty"><i class="ti ti-file-invoice"></i>Sin facturas</div>';
   document.getElementById('detalle-content').innerHTML=
     '<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem">'+
     '<div><div style="font-size:17px;font-weight:700;color:var(--od-blue)">OC '+oc.numero+'</div><div style="font-size:12px;color:var(--text-muted);margin-top:2px">'+oc.organismo+' · '+oc.licitacion+' · '+(oc.fecha||'')+'</div></div>'+
@@ -837,9 +837,15 @@ function openFactura(ocId){
 async function guardarFactura(){
   const oc=state.ocs.find(o=>o.id===state.currentOC);if(!oc)return;
   const num=document.getElementById('mfac-num').value.trim();if(!num){alert('Ingresá el N° de factura');return;}
+  const editId=document.getElementById('mfac-num').dataset.editId||'';
+  const facData={id:editId||'f'+Date.now(),numero:num,fecha:document.getElementById('mfac-fecha').value,remitos:document.getElementById('mfac-remitos').value.split(',').map(r=>r.trim()).filter(Boolean),monto:parseNum(document.getElementById('mfac-monto').value)};
   if(!oc.facturas)oc.facturas=[];
-  oc.facturas.push({id:'f'+Date.now(),numero:num,fecha:document.getElementById('mfac-fecha').value,remitos:document.getElementById('mfac-remitos').value.split(',').map(r=>r.trim()).filter(Boolean),monto:parseFloat(document.getElementById('mfac-monto').value)||0});
+  if(editId){const idx=oc.facturas.findIndex(f=>f.id===editId);if(idx>=0)oc.facturas[idx]=facData;}
+  else{oc.facturas.push(facData);}
+  document.getElementById('mfac-num').dataset.editId='';
+  document.querySelector('#modal-factura .modal-title').textContent='Registrar factura';
   await saveOC(oc);closeModal('modal-factura');renderDetalle(oc);
+  toast((editId?'Factura actualizada':'Factura registrada')+' ✓','success');
 }
 
 // ===== CERRAR OC =====
@@ -966,6 +972,51 @@ function exportarResumenExcel() {
   a.download = 'resumen-articulos-' + new Date().toISOString().slice(0,10) + '.csv';
   a.click();
   toast('Excel descargado', 'success');
+}
+
+
+// ===== EDITAR / ELIMINAR FACTURA =====
+async function editarFactura(ocId, facId){
+  const oc=state.ocs.find(o=>o.id===ocId);if(!oc)return;
+  const f=(oc.facturas||[]).find(x=>x.id===facId);if(!f)return;
+  state.currentOC=ocId;
+  document.getElementById('mfac-ocnum').textContent=oc.numero;
+  document.getElementById('mfac-num').value=f.numero||'';
+  document.getElementById('mfac-fecha').value=f.fecha||'';
+  document.getElementById('mfac-remitos').value=(f.remitos||[]).join(', ');
+  document.getElementById('mfac-monto').value=f.monto||'';
+  document.getElementById('mfac-num').dataset.editId=facId;
+  document.querySelector('#modal-factura .modal-title').textContent='Editar factura — OC '+oc.numero;
+  openModal('modal-factura');
+}
+
+async function eliminarFactura(ocId, facId){
+  const oc=state.ocs.find(o=>o.id===ocId);if(!oc)return;
+  const f=(oc.facturas||[]).find(x=>x.id===facId);if(!f)return;
+  if(!confirm('¿Eliminar la factura '+f.numero+'?\nEsta acción no se puede deshacer.'))return;
+  oc.facturas=oc.facturas.filter(x=>x.id!==facId);
+  await saveOC(oc);renderDetalle(oc);
+  toast('Factura '+f.numero+' eliminada','success');
+}
+
+// ===== EDITAR NÚMERO REMITO =====
+async function editarNumeroRemito(ocId, entregaId){
+  const oc=state.ocs.find(o=>o.id===ocId);if(!oc)return;
+  const e=(oc.entregas||[]).find(x=>x.id===entregaId);if(!e)return;
+  const nuevo=prompt('Número de remito actual: '+e.remito+'\n\nIngresá el nuevo número:',e.remito);
+  if(!nuevo||nuevo.trim()===''||nuevo.trim()===e.remito)return;
+  e.remito=nuevo.trim().toUpperCase();
+  await saveOC(oc);renderDetalle(oc);
+  toast('Remito renombrado a '+e.remito,'success');
+}
+
+async function eliminarRemito(ocId, entregaId){
+  const oc=state.ocs.find(o=>o.id===ocId);if(!oc)return;
+  const e=(oc.entregas||[]).find(x=>x.id===entregaId);if(!e)return;
+  if(!confirm('¿Eliminar el remito '+e.remito+'?\nEsta acción no se puede deshacer.'))return;
+  oc.entregas=oc.entregas.filter(x=>x.id!==entregaId);
+  await saveOC(oc);renderDetalle(oc);
+  toast('Remito '+e.remito+' eliminado','success');
 }
 
 // ===== IMPRIMIR REMITO PDF =====
