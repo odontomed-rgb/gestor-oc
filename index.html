@@ -439,7 +439,7 @@ function renderDash(){
     '<td><div style="display:flex;align-items:center;gap:6px"><div class="pm" style="width:50px"><div class="pf" style="width:'+pE+'%;background:'+(pE>=100?'#16A34A':pE>=50?'var(--od-orange)':'#EF4444')+'"></div></div><span style="font-size:11px">'+pE+'%</span></div></td>'+
     '<td style="font-size:12px">'+fmt(c.totalFac)+'</td>'+
     '<td>'+estadoBadge(o,c)+'</td>'+
-    '<td><button class="btn sm" onclick="verDetalle(\''+o.id+'\')" style="color:var(--od-blue);border-color:var(--od-blue)">Ver</button></td></tr>';}).join('');
+    '<td><button class="btn sm" onclick="verDetalle(\''+o.numero+'\')" style="color:var(--od-blue);border-color:var(--od-blue)">Ver</button></td></tr>';}).join('');
 }
 
 // ===== OCs =====
@@ -459,11 +459,21 @@ function renderOCs(){
     '<td style="font-size:12px;color:var(--text-muted)">'+(o.fecha||'-')+'</td>'+
     '<td>'+fmt(c.montoOC)+'</td><td>'+fmt(c.totalEnt)+'</td><td>'+fmt(c.totalFac)+'</td>'+
     '<td>'+estadoBadge(o,c)+'</td>'+
-    '<td><button class="btn sm" onclick="verDetalle(\''+o.id+'\')" style="color:var(--od-blue);border-color:var(--od-blue)">Ver</button></td></tr>';}).join('');
+    '<td><button class="btn sm" onclick="verDetalle(\''+o.numero+'\')" style="color:var(--od-blue);border-color:var(--od-blue)">Ver</button></td></tr>';}).join('');
 }
 
 // ===== DETALLE =====
-function verDetalle(id){state.currentOC=id;showPage('detalle');document.getElementById('nav-ocs').classList.add('active');document.getElementById('topbar-title').textContent='Detalle de OC';renderDetalle(state.ocs.find(o=>o.id===id));}
+function verDetalle(id){
+  // Buscar por id exacto, o por numero como fallback
+  let oc = state.ocs.find(o=>o.id===id);
+  if(!oc) oc = state.ocs.find(o=>o.numero===id);
+  if(!oc) return;
+  state.currentOC=oc.id;
+  showPage('detalle');
+  document.getElementById('nav-ocs').classList.add('active');
+  document.getElementById('topbar-title').textContent='Detalle de OC';
+  renderDetalle(oc);
+}
 function renderDetalle(oc){
   if(!oc)return;
   const c=calcOC(oc),isCerrada=oc.estado==='cerrada',pendN=(oc.pendingItems||[]).length;
@@ -589,7 +599,7 @@ function renderPendientes(){
   if(!rows.length){tb.innerHTML="<tr><td colspan='8'><div class='empty'><i class='ti ti-check'></i>Sin pendientes</div></td></tr>";return;}
   tb.innerHTML=rows.map(function(x){
     return "<tr>"+
-      "<td><button class='btn sm' onclick='verDetalle(\""+x.oc.id+"\")' style='color:var(--od-blue);border-color:var(--od-blue);padding:2px 8px'>"+x.oc.numero+"</button></td>"+
+      "<td><button class='btn sm' onclick='verDetalle(\""+x.oc.numero+"\")' style='color:var(--od-blue);border-color:var(--od-blue);padding:2px 8px'>"+x.oc.numero+"</button></td>"+
       "<td>"+orgChip(x.oc.organismo)+"</td>"+
       "<td style='font-size:11px;color:var(--text-muted)'>"+x.r.numero+"</td>"+
       "<td>"+x.r.producto+"</td>"+
@@ -609,7 +619,7 @@ function renderSinFacturar(){
   });
   if(!rows.length){tb.innerHTML='<tr><td colspan="7"><div class="empty"><i class="ti ti-check"></i>Todo facturado</div></td></tr>';return;}
   tb.innerHTML=rows.map(x=>'<tr>'+
-    '<td><button class="btn sm" onclick="verDetalle(\''+x.oc.id+'\')" style="color:var(--od-blue);border-color:var(--od-blue);padding:2px 8px">'+x.oc.numero+'</button></td>'+
+    '<td><button class="btn sm" onclick="verDetalle(\''+x.oc.numero+'\')" style="color:var(--od-blue);border-color:var(--od-blue);padding:2px 8px">'+x.oc.numero+'</button></td>'+
     '<td>'+orgChip(x.oc.organismo)+'</td>'+
     '<td><strong style="color:var(--od-blue)">'+x.e.remito+'</strong></td>'+
     '<td style="font-size:12px;color:var(--text-muted)">'+(x.e.fecha||'-')+'</td>'+
