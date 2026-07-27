@@ -231,7 +231,20 @@ tr:hover td{background:#FAFAFA}
   </div>
 </div></div>
 
-<div class="modal-overlay" id="modal-resolver">
+<div class="modal-overlay" id="modal-editar-remito">
+<div class="modal">
+  <div class="modal-header"><div class="modal-title">Editar remito <span id="mer-titulo" style="color:var(--od-orange)"></span></div><button class="btn sm" onclick="closeModal('modal-editar-remito')"><i class="ti ti-x"></i></button></div>
+  <div class="form-grid">
+    <div class="form-row"><label class="form-label">N° Remito</label><input id="mer-remito" placeholder="ej: R05-463"></div>
+    <div class="form-row"><label class="form-label">Fecha</label><input type="date" id="mer-fecha"></div>
+  </div>
+  <div class="nota-box"><i class="ti ti-info-circle"></i>Editá las cantidades, lotes y vencimientos. Poné 0 para quitar un ítem.</div>
+  <div style="overflow-x:auto"><table class="rtable"><thead><tr><th>R°</th><th>Producto</th><th>Cantidad</th><th>Lote</th><th>Vencimiento</th><th>Observaciones</th></tr></thead><tbody id="mer-tbody"></tbody></table></div>
+  <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:1.25rem">
+    <button class="btn" onclick="closeModal('modal-editar-remito')">Cancelar</button>
+    <button class="btn primary" onclick="guardarEdicionRemito()">Guardar cambios</button>
+  </div>
+</div></div>
 <div class="modal">
   <div class="modal-header"><div class="modal-title">Asignar ítem del remito <span id="mres-remito" style="color:var(--od-orange)"></span></div><button class="btn sm" onclick="closeModal('modal-resolver')"><i class="ti ti-x"></i></button></div>
   <div class="alert-box"><i class="ti ti-alert-triangle"></i>Este ítem no pudo asignarse automáticamente.</div>
@@ -452,7 +465,7 @@ function renderDash(){
     '<td><div style="display:flex;align-items:center;gap:6px"><div class="pm" style="width:50px"><div class="pf" style="width:'+pE+'%;background:'+(pE>=100?'#16A34A':pE>=50?'var(--od-orange)':'#EF4444')+'"></div></div><span style="font-size:11px">'+pE+'%</span></div></td>'+
     '<td style="font-size:12px">'+fmt(c.totalFac)+'</td>'+
     '<td>'+estadoBadge(o,c)+'</td>'+
-    '<td><button class="btn sm" onclick="verDetalle(\''+o.id+'\')" style="color:var(--od-blue);border-color:var(--od-blue)">Ver</button></td></tr>';}).join('');
+    '<td><button class="btn sm" onclick="verDetalle(\''+o.numero+'\')" style="color:var(--od-blue);border-color:var(--od-blue)">Ver</button></td></tr>';}).join('');
 }
 
 // ===== OCs =====
@@ -472,7 +485,7 @@ function renderOCs(){
     '<td style="font-size:12px;color:var(--text-muted)">'+(o.fecha||'-')+'</td>'+
     '<td>'+fmt(c.montoOC)+'</td><td>'+fmt(c.totalEnt)+'</td><td>'+fmt(c.totalFac)+'</td>'+
     '<td>'+estadoBadge(o,c)+'</td>'+
-    '<td><button class="btn sm" onclick="verDetalle(\''+o.id+'\')" style="color:var(--od-blue);border-color:var(--od-blue)">Ver</button></td></tr>';}).join('');
+    '<td><button class="btn sm" onclick="verDetalle(\''+o.numero+'\')" style="color:var(--od-blue);border-color:var(--od-blue)">Ver</button></td></tr>';}).join('');
 }
 
 // ===== DETALLE =====
@@ -493,7 +506,7 @@ function renderDetalle(oc){
   const eH=(oc.entregas||[]).length?(oc.entregas||[]).map(e=>{
     const fac=(oc.facturas||[]).some(f=>remitosCoinciden(e.remito,f.remitos));
     const items=(e.items||[]).filter(i=>i.cantidad>0).map(i=>{const r=(oc.renglones||[]).find(x=>x.id===i.renglon);return r?r.producto+': '+fN(i.cantidad)+' u.':''}).filter(Boolean).join(' · ');
-    return'<div class="ent-card '+(fac?'fac':'')+'"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><div><strong style="color:var(--od-blue)">Remito '+e.remito+'</strong> <span style="font-size:12px;color:var(--text-muted)">'+(e.fecha||'')+'</span></div><div style="display:flex;gap:6px;align-items:center">'+(fac?'<span class="badge green">Facturado</span>':'<span class="badge orange">Sin facturar</span>')+'<button class="btn sm" onclick="editarNumeroRemito(\''+oc.id+'\',\''+e.id+'\')" style="font-size:11px" title="Editar"><i class="ti ti-pencil"></i></button><button class="btn sm" onclick="imprimirRemito(\''+oc.id+'\',\''+e.id+'\')" style="font-size:11px"><i class="ti ti-printer"></i> PDF</button><button class="btn sm danger" onclick="eliminarRemito(\''+oc.id+'\',\''+e.id+'\')" style="font-size:11px"><i class="ti ti-trash"></i></button></div></div><div style="font-size:12px;color:var(--text-muted)">'+(items||'Sin ítems')+'</div></div>';}).join(''):'<div class="empty"><i class="ti ti-truck"></i>Sin entregas</div>';
+    return'<div class="ent-card '+(fac?'fac':'')+'"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><div><strong style="color:var(--od-blue)">Remito '+e.remito+'</strong> <span style="font-size:12px;color:var(--text-muted)">'+(e.fecha||'')+'</span></div><div style="display:flex;gap:6px;align-items:center">'+(fac?'<span class="badge green">Facturado</span>':'<span class="badge orange">Sin facturar</span>')+'<button class="btn sm" onclick="editarRemito(\''+oc.id+'\',\''+e.id+'\'" style="font-size:11px" title="Editar"><i class="ti ti-pencil"></i></button><button class="btn sm" onclick="imprimirRemito(\''+oc.id+'\',\''+e.id+'\')" style="font-size:11px"><i class="ti ti-printer"></i> PDF</button><button class="btn sm danger" onclick="eliminarRemito(\''+oc.id+'\',\''+e.id+'\')" style="font-size:11px"><i class="ti ti-trash"></i></button></div></div><div style="font-size:12px;color:var(--text-muted)">'+(items||'Sin ítems')+'</div></div>';}).join(''):'<div class="empty"><i class="ti ti-truck"></i>Sin entregas</div>';
   const fH=(oc.facturas||[]).length?(oc.facturas||[]).map(f=>'<div class="fac-card"><div style="display:flex;justify-content:space-between;align-items:center"><div><strong style="color:var(--od-blue)">Fac. '+f.numero+'</strong> <span style="font-size:12px;color:var(--text-muted)">'+(f.fecha||'')+'</span></div><div style="display:flex;align-items:center;gap:8px"><span style="font-weight:600">'+fmt(f.monto)+'</span><button class="btn sm" onclick="editarFactura(\''+oc.id+'\',\''+f.id+'\')" style="font-size:11px" title="Editar"><i class="ti ti-pencil"></i></button><button class="btn sm danger" onclick="eliminarFactura(\''+oc.id+'\',\''+f.id+'\')" style="font-size:11px"><i class="ti ti-trash"></i></button></div></div><div style="font-size:12px;color:var(--text-muted);margin-top:2px">Remitos: '+((f.remitos||[]).join(', ')||'-')+'</div></div>').join(''):'<div class="empty"><i class="ti ti-file-invoice"></i>Sin facturas</div>';
   document.getElementById('detalle-content').innerHTML=
     '<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem">'+
@@ -610,7 +623,7 @@ function renderPendientes(){
   if(!rows.length){tb.innerHTML="<tr><td colspan='8'><div class='empty'><i class='ti ti-check'></i>Sin pendientes</div></td></tr>";return;}
   tb.innerHTML=rows.map(function(x){
     return "<tr>"+
-      "<td><button class='btn sm' onclick='verDetalle(\""+x.oc.id+"\")' style='color:var(--od-blue);border-color:var(--od-blue);padding:2px 8px'>"+x.oc.numero+"</button></td>"+
+      "<td><button class='btn sm' onclick='verDetalle(\""+x.oc.numero+"\")' style='color:var(--od-blue);border-color:var(--od-blue);padding:2px 8px'>"+x.oc.numero+"</button></td>"+
       "<td>"+orgChip(x.oc.organismo)+"</td>"+
       "<td style='font-size:11px;color:var(--text-muted)'>"+x.r.numero+"</td>"+
       "<td>"+x.r.producto+"</td>"+
@@ -630,7 +643,7 @@ function renderSinFacturar(){
   });
   if(!rows.length){tb.innerHTML='<tr><td colspan="7"><div class="empty"><i class="ti ti-check"></i>Todo facturado</div></td></tr>';return;}
   tb.innerHTML=rows.map(x=>'<tr>'+
-    '<td><button class="btn sm" onclick="verDetalle(\''+x.oc.id+'\')" style="color:var(--od-blue);border-color:var(--od-blue);padding:2px 8px">'+x.oc.numero+'</button></td>'+
+    '<td><button class="btn sm" onclick="verDetalle(\''+x.oc.numero+'\')" style="color:var(--od-blue);border-color:var(--od-blue);padding:2px 8px">'+x.oc.numero+'</button></td>'+
     '<td>'+orgChip(x.oc.organismo)+'</td>'+
     '<td><strong style="color:var(--od-blue)">'+x.e.remito+'</strong></td>'+
     '<td style="font-size:12px;color:var(--text-muted)">'+(x.e.fecha||'-')+'</td>'+
@@ -1000,6 +1013,61 @@ function exportarResumenExcel() {
 }
 
 
+// ===== EDITAR REMITO COMPLETO =====
+function editarRemito(ocId, entregaId){
+  const oc=state.ocs.find(o=>o.id===ocId)||state.ocs.find(o=>o.numero===ocId);
+  if(!oc)return;
+  const e=(oc.entregas||[]).find(x=>x.id===entregaId);
+  if(!e)return;
+  state.currentOC=oc.id;
+  document.getElementById('mer-titulo').textContent=e.remito;
+  document.getElementById('mer-remito').value=e.remito||'';
+  document.getElementById('mer-fecha').value=e.fecha||'';
+  document.getElementById('mer-remito').dataset.entregaId=entregaId;
+
+  // Construir tabla con todos los renglones de la OC
+  const renglones=(oc.renglones||[]).slice().sort((a,b)=>Number(a.numero)-Number(b.numero));
+  document.getElementById('mer-tbody').innerHTML=renglones.map(r=>{
+    const item=(e.items||[]).find(i=>i.renglon===r.id)||{};
+    const cant=item.cantidad||0;
+    return '<tr>'+
+      '<td style="font-size:11px;color:var(--text-muted)">'+r.numero+'</td>'+
+      '<td style="font-size:12px">'+r.producto+'</td>'+
+      '<td><input type="number" min="0" style="width:65px" id="mer-c-'+r.id+'" value="'+cant+'"></td>'+
+      '<td><input type="text" style="width:90px;font-size:11px" id="mer-l-'+r.id+'" value="'+(item.lote||'')+'" placeholder="Lote"></td>'+
+      '<td><input type="text" style="width:90px;font-size:11px" id="mer-v-'+r.id+'" value="'+(item.vencimiento||'')+'" placeholder="Vencim."></td>'+
+      '<td><input type="text" style="width:110px;font-size:11px" id="mer-o-'+r.id+'" value="'+(item.observaciones||'')+'" placeholder="Obs."></td>'+
+      '</tr>';
+  }).join('');
+  openModal('modal-editar-remito');
+}
+
+async function guardarEdicionRemito(){
+  const oc=state.ocs.find(o=>o.id===state.currentOC);
+  if(!oc)return;
+  const entregaId=document.getElementById('mer-remito').dataset.entregaId;
+  const e=(oc.entregas||[]).find(x=>x.id===entregaId);
+  if(!e)return;
+  e.remito=document.getElementById('mer-remito').value.trim().toUpperCase();
+  e.fecha=document.getElementById('mer-fecha').value;
+  const renglones=(oc.renglones||[]);
+  e.items=renglones.map(r=>{
+    const cant=parseFloat(document.getElementById('mer-c-'+r.id)?.value)||0;
+    if(cant<=0)return null;
+    return{
+      renglon:r.id,
+      cantidad:cant,
+      lote:(document.getElementById('mer-l-'+r.id)?.value||'').trim(),
+      vencimiento:(document.getElementById('mer-v-'+r.id)?.value||'').trim(),
+      observaciones:(document.getElementById('mer-o-'+r.id)?.value||'').trim()
+    };
+  }).filter(Boolean);
+  await saveOC(oc);
+  closeModal('modal-editar-remito');
+  renderDetalle(oc);
+  toast('Remito '+e.remito+' actualizado ✓','success');
+}
+
 // ===== EDITAR / ELIMINAR FACTURA =====
 async function editarFactura(ocId, facId){
   const oc=state.ocs.find(o=>o.id===ocId);if(!oc)return;
@@ -1046,12 +1114,23 @@ async function eliminarRemito(ocId, entregaId){
 
 // ===== IMPRIMIR REMITO PDF =====
 function imprimirRemito(ocId, entregaId) {
-  const oc = state.ocs.find(o => o.id === ocId);
+  const oc = state.ocs.find(o=>o.id===ocId)||state.ocs.find(o=>o.numero===ocId);
   if(!oc) return;
   const e = (oc.entregas || []).find(x => x.id === entregaId);
   if(!e) return;
 
-  const items = (e.items || []).filter(i => i.cantidad > 0).map(i => {
+  // Agrupar por renglón para evitar duplicados
+  const mapaItems = {};
+  (e.items || []).forEach(i => {
+    if(!i.cantidad || i.cantidad <= 0) return;
+    if(mapaItems[i.renglon]) {
+      mapaItems[i.renglon].cantidad += i.cantidad;
+    } else {
+      mapaItems[i.renglon] = {...i};
+    }
+  });
+
+  const items = Object.values(mapaItems).map(i => {
     const r = (oc.renglones || []).find(x => x.id === i.renglon);
     if(!r) return null;
     return {
