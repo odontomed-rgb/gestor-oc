@@ -245,6 +245,7 @@ tr:hover td{background:#FAFAFA}
     <button class="btn primary" onclick="guardarEdicionRemito()">Guardar cambios</button>
   </div>
 </div></div>
+<div class="modal-overlay" id="modal-resolver">
 <div class="modal">
   <div class="modal-header"><div class="modal-title">Asignar ítem del remito <span id="mres-remito" style="color:var(--od-orange)"></span></div><button class="btn sm" onclick="closeModal('modal-resolver')"><i class="ti ti-x"></i></button></div>
   <div class="alert-box"><i class="ti ti-alert-triangle"></i>Este ítem no pudo asignarse automáticamente.</div>
@@ -732,7 +733,8 @@ function resolverItem(ocId,itemId){
 }
 
 async function confirmarResolucion(){
-  const {ocId,itemId}=state.currentResolver||{};
+  if(!state.currentResolver){closeModal('modal-resolver');return;}
+  const {ocId,itemId}=state.currentResolver;
   const oc=state.ocs.find(o=>o.id===ocId);const item=(oc?.pendingItems||[]).find(p=>p.id===itemId);if(!oc||!item)return;
   const rid=document.getElementById('res-renglon')?.value;const cant=parseFloat(document.getElementById('res-cant')?.value)||0;
   if(!rid){alert('Seleccioná un renglón');return;}
