@@ -224,7 +224,7 @@ tr:hover td{background:#FAFAFA}
     <div class="form-row"><label class="form-label">Fecha</label><input type="date" id="mfac-fecha"></div>
   </div>
   <div class="form-row"><label class="form-label">Remitos que cubre (separados por coma)</label><input id="mfac-remitos" placeholder="ej: R05-433, R05-415"></div>
-  <div class="form-row"><label class="form-label">Monto total</label><input type="number" id="mfac-monto"></div>
+  <div class="form-row"><label class="form-label">Monto total</label><input type="text" id="mfac-monto" placeholder="ej: 7557439.95"></div>
   <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:1.25rem">
     <button class="btn" onclick="closeModal('modal-factura')">Cancelar</button>
     <button class="btn primary" onclick="guardarFactura()">Registrar factura</button>
@@ -508,7 +508,7 @@ function renderDetalle(oc){
     const fac=(oc.facturas||[]).some(f=>remitosCoinciden(e.remito,f.remitos));
     const items=(e.items||[]).filter(i=>i.cantidad>0).map(i=>{const r=(oc.renglones||[]).find(x=>x.id===i.renglon);return r?r.producto+': '+fN(i.cantidad)+' u.':''}).filter(Boolean).join(' · ');
     return'<div class="ent-card '+(fac?'fac':'')+'"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><div><strong style="color:var(--od-blue)">Remito '+e.remito+'</strong> <span style="font-size:12px;color:var(--text-muted)">'+(e.fecha||'')+'</span></div><div style="display:flex;gap:6px;align-items:center">'+(fac?'<span class="badge green">Facturado</span>':'<span class="badge orange">Sin facturar</span>')+'<button class="btn sm" onclick="editarRemito(\''+oc.id+'\',\''+e.id+'\')" style="font-size:11px" title="Editar"><i class="ti ti-pencil"></i></button><button class="btn sm" onclick="imprimirRemito(\''+oc.id+'\',\''+e.id+'\')" style="font-size:11px"><i class="ti ti-printer"></i> PDF</button><button class="btn sm danger" onclick="eliminarRemito(\''+oc.id+'\',\''+e.id+'\')" style="font-size:11px"><i class="ti ti-trash"></i></button></div></div><div style="font-size:12px;color:var(--text-muted)">'+(items||'Sin ítems')+'</div></div>';}).join(''):'<div class="empty"><i class="ti ti-truck"></i>Sin entregas</div>';
-  const fH=(oc.facturas||[]).length?(oc.facturas||[]).map(f=>'<div class="fac-card"><div style="display:flex;justify-content:space-between;align-items:center"><div><strong style="color:var(--od-blue)">Fac. '+f.numero+'</strong> <span style="font-size:12px;color:var(--text-muted)">'+(f.fecha||'')+'</span></div><div style="display:flex;align-items:center;gap:8px"><span style="font-weight:600">'+fmt(f.monto)+'</span><button class="btn sm" onclick="editarFactura(\''+oc.id+'\',\''+f.id+'\')" style="font-size:11px" title="Editar"><i class="ti ti-pencil"></i></button><button class="btn sm danger" onclick="eliminarFactura(\''+oc.id+'\',\''+f.id+'\')" style="font-size:11px"><i class="ti ti-trash"></i></button></div></div><div style="font-size:12px;color:var(--text-muted);margin-top:2px">Remitos: '+((f.remitos||[]).join(', ')||'-')+'</div></div>').join(''):'<div class="empty"><i class="ti ti-file-invoice"></i>Sin facturas</div>';
+  const fH=(oc.facturas||[]).length?(oc.facturas||[]).map(f=>'<div class="fac-card"><div style="display:flex;justify-content:space-between;align-items:center"><div><strong style="color:var(--od-blue)">Fac. '+f.numero+'</strong> <span style="font-size:12px;color:var(--text-muted)">'+(f.fecha||'')+'</span></div><div style="display:flex;align-items:center;gap:8px"><span style="font-weight:600">'+fmt(f.monto)+'</span><button class="btn sm" onclick="editarFactura(\''+oc.numero+'\',\''+f.id+'\')" style="font-size:11px" title="Editar"><i class="ti ti-pencil"></i></button><button class="btn sm danger" onclick="eliminarFactura(\''+oc.numero+'\',\''+f.id+'\')" style="font-size:11px"><i class="ti ti-trash"></i></button></div></div><div style="font-size:12px;color:var(--text-muted);margin-top:2px">Remitos: '+((f.remitos||[]).join(', ')||'-')+'</div></div>').join(''):'<div class="empty"><i class="ti ti-file-invoice"></i>Sin facturas</div>';
   document.getElementById('detalle-content').innerHTML=
     '<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem">'+
     '<div><div style="font-size:17px;font-weight:700;color:var(--od-blue)">OC '+oc.numero+'</div><div style="font-size:12px;color:var(--text-muted);margin-top:2px">'+oc.organismo+' · '+oc.licitacion+' · '+(oc.fecha||'')+'</div></div>'+
@@ -1072,7 +1072,7 @@ async function guardarEdicionRemito(){
 
 // ===== EDITAR / ELIMINAR FACTURA =====
 async function editarFactura(ocId, facId){
-  const oc=state.ocs.find(o=>o.id===ocId);if(!oc)return;
+  const oc=state.ocs.find(o=>o.numero===ocId)||state.ocs.find(o=>o.id===ocId);if(!oc)return;
   const f=(oc.facturas||[]).find(x=>x.id===facId);if(!f)return;
   state.currentOC=ocId;
   document.getElementById('mfac-ocnum').textContent=oc.numero;
@@ -1086,7 +1086,7 @@ async function editarFactura(ocId, facId){
 }
 
 async function eliminarFactura(ocId, facId){
-  const oc=state.ocs.find(o=>o.id===ocId);if(!oc)return;
+  const oc=state.ocs.find(o=>o.numero===ocId)||state.ocs.find(o=>o.id===ocId);if(!oc)return;
   const f=(oc.facturas||[]).find(x=>x.id===facId);if(!f)return;
   if(!confirm('¿Eliminar la factura '+f.numero+'?\nEsta acción no se puede deshacer.'))return;
   oc.facturas=oc.facturas.filter(x=>x.id!==facId);
