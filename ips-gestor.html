@@ -145,6 +145,12 @@ tr:hover td{background:var(--bg-hover)}
 <div class="topbar">
   <div class="topbar-title" id="topbar-title">Inicio</div>
   <div class="topbar-actions">
+    <select style="font-size:12px;padding:5px 8px;border-radius:var(--rs);border:1px solid var(--border);background:white" id="fil-periodo-g" onchange="renderDash()">
+      <option value="4">Últimos 4 meses</option>
+      <option value="6">Últimos 6 meses</option>
+      <option value="12">Último año</option>
+      <option value="0">Todos</option>
+    </select>
     <select style="font-size:12px;padding:5px 8px;border-radius:var(--rs);border:1px solid var(--border);background:white" id="fil-sanatorio-g" onchange="renderDash()">
       <option value="">Todas las clínicas</option>
     </select>
@@ -167,6 +173,12 @@ tr:hover td{background:var(--bg-hover)}
 <div class="page" id="page-contrataciones">
   <div class="filter-bar">
     <input type="text" id="fc-bus" placeholder="Buscar afiliado, N°, producto..." oninput="renderTabla()" style="width:240px">
+    <select id="fc-periodo" onchange="renderTabla()">
+      <option value="4">Últimos 4 meses</option>
+      <option value="6">Últimos 6 meses</option>
+      <option value="12">Último año</option>
+      <option value="0">Todos</option>
+    </select>
     <select id="fc-tipo" onchange="renderTabla()">
       <option value="">Todos los tipos</option>
       <option value="Urgencia">Urgencia</option>
@@ -247,6 +259,7 @@ tr:hover td{background:var(--bg-hover)}
 8. Importe Total Adjudicado
 
 Reglas:
+- IMPORTANTE: Solo incluí contrataciones donde el Proveedor Adjudicado sea "ODONTOMED - DELPAT SRL". Si la contratación fue adjudicada a otro proveedor, no la incluyas aunque aparezca en la lista.
 - Solo incluí contrataciones con fecha de los últimos 3 meses desde hoy. Ignorá las más antiguas.
 - Si una contratación tiene múltiples productos, poné cada producto en una fila separada, repitiendo los datos del afiliado.
 - En "N° Contratación / Tipo" usá el formato: Contratación Abreviada de [Tipo] N° [número]/[año]
@@ -445,9 +458,31 @@ function filtroRapido(campo){
 }
 
 // ===== DASHBOARD =====
+
+function getFechaCutoff(meses) {
+  if(!meses || meses == 0) return null;
+  const d = new Date();
+  d.setMonth(d.getMonth() - parseInt(meses));
+  return d;
+}
+
+function fechaDentroDelPeriodo(fechaStr, cutoff) {
+  if(!cutoff) return true;
+  if(!fechaStr || fechaStr === 'nan' || fechaStr === '') return true; // sin fecha: mostrar siempre
+  // Formato DD/MM/AAAA
+  const p = fechaStr.split('/');
+  if(p.length === 3) {
+    const d = new Date(parseInt(p[2]), parseInt(p[1])-1, parseInt(p[0]));
+    return d >= cutoff;
+  }
+  return true;
+}
+
 function renderDash(){
   const san=getFiltroSanatorio();
-  const lista=state.contrataciones.filter(c=>!san||c.sanatorio===san);
+  const periodoG = document.getElementById('fil-periodo-g')?.value || '4';
+  const cutoffG = getFechaCutoff(periodoG);
+  const lista=state.contrataciones.filter(c=>(!san||c.sanatorio===san)&&fechaDentroDelPeriodo(c.fecha,cutoffG));
   const abiertos=lista.filter(c=>!esCerrado(c));
   const total=lista.length;
   const sinFoja=abiertos.filter(c=>!c.foja||c.foja.trim()==='').length;
@@ -491,8 +526,11 @@ function renderTabla(){
   const san=document.getElementById('fc-san')?.value||'';
   const estado=document.getElementById('fc-estado')?.value||'';
   const campo=document.getElementById('fc-campo')?.value||'';
+  const periodo=document.getElementById('fc-periodo')?.value||'4';
+  const cutoff=getFechaCutoff(periodo);
 
   let lista=[...state.contrataciones].filter(c=>{
+    if(!fechaDentroDelPeriodo(c.fecha, cutoff)) return false;
     if(tipo&&c.tipo!==tipo)return false;
     if(san&&c.sanatorio!==san)return false;
     if(bus&&!(
