@@ -389,6 +389,20 @@ function toast(msg,type=''){
 
 // ===== HELPERS =====
 function fmt(n){return Number(n||0).toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0});}
+function parseFechaDMY(f){
+  if(!f) return null;
+  const p=f.split('/');
+  if(p.length!==3) return null;
+  const d=new Date(parseInt(p[2]),parseInt(p[1])-1,parseInt(p[0]));
+  return isNaN(d.getTime())?null:d;
+}
+function compararReciente(a,b){
+  const fa=parseFechaDMY(a.fecha), fb=parseFechaDMY(b.fecha);
+  if(fa&&fb) return fb-fa;
+  if(fa&&!fb) return -1;
+  if(!fa&&fb) return 1;
+  return parseInt(b.numero)-parseInt(a.numero);
+}
 function tipoBadge(tipo){
   if(!tipo)return'';
   if(tipo==='Urgencia')return'<span class="tipo-urgencia">URGENCIA</span>';
@@ -498,10 +512,7 @@ function renderDash(){
     '<div class="card ao"><div class="lbl">Sin factura</div><div class="val" style="color:var(--od-orange)">'+sinFactura+'</div><div class="sub"><button class="btn sm" onclick="filtroRapido(\'factura\')" style="margin-top:4px;font-size:11px">Ver</button></div></div>';
 
   // Últimas 20
-  const recientes=[...lista].sort((a,b)=>{
-    const na=parseInt(a.numero),nb=parseInt(b.numero);
-    return nb-na;
-  }).slice(0,20);
+  const recientes=[...lista].sort(compararReciente).slice(0,20);
 
   const tb=document.getElementById('dash-tbody');
   if(!recientes.length){tb.innerHTML='<tr><td colspan="10"><div class="empty"><i class="ti ti-file-text"></i>Sin contrataciones</div></td></tr>';return;}
@@ -549,7 +560,7 @@ function renderTabla(){
       if(campos.every(k=>c[k]&&c[k].trim()!==''))return false;
     }
     return true;
-  }).sort((a,b)=>parseInt(b.numero)-parseInt(a.numero));
+  }).sort(compararReciente);
 
   document.getElementById('fc-count').textContent=lista.length+' contrataciones';
 
