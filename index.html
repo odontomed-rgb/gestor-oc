@@ -266,7 +266,7 @@ const db = firebase.database();
 const ref = db.ref('ocs');
 
 // ===== STATE =====
-const PROVEEDORES = ['Medrano','Megadental','Poquet','Belkys','Microdont','Easydent','Farmadental','Densell','Meta','Maillefer','KMD','Nipro','IBC','Mecadent','Muntal','Carestream','Romek','Scivita','Tribiselada'];
+const PROVEEDORES = ['Medrano','Megadental','Poquet','Belkys','Microdont','Easydent','Farmadental','Densell','Meta','Maillefer','KMD','Nipro','IBC','Mecadent','Muntal','Carestream','Romek','Dentsply','Tribiselada'];
 const PAGE_TITLES = {dashboard:'Resumen general',ocs:'Órdenes de compra',detalle:'Detalle de OC',resolver:'Por resolver',pendientes:'Pendientes de entrega','sin-facturar':'Sin facturar',proveedores:'Por proveedor',resumen:'Resumen por artículo'};
 let state = {ocs:[], currentOC:null, currentResolver:null, currentPage:'dashboard', loaded:false};
 let rcnt = 0;
