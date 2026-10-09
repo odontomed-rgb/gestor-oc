@@ -1,0 +1,16 @@
+{
+  "rules": {
+    "usuarios_autorizados": {
+      ".read": false,
+      ".write": false
+    },
+    "ocs": {
+      ".read": "auth != null && root.child('usuarios_autorizados').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('usuarios_autorizados').child(auth.uid).val() === true"
+    },
+    "contrataciones": {
+      ".read": "auth != null && root.child('usuarios_autorizados').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('usuarios_autorizados').child(auth.uid).val() === true"
+    }
+  }
+}
